@@ -44,8 +44,8 @@
         // ----------------------
 
         // Usiamo la porta 8884 che è quella PROTETTA (WSS)
-        const broker = "broker.hivemq.com";
-        const port = 8884; 
+        const broker = "public.mqtthq.com";
+        const port = 8084; 
         
         const clientID = "web_client_" + Math.random().toString(16).substr(2, 8);
         const client = new Paho.MQTT.Client(broker, port, clientID);
@@ -95,3 +95,4 @@
     </script>
 </body>
 </html>
+
