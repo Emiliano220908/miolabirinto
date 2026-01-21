@@ -16,49 +16,56 @@
         #player {
             width: 30px;
             height: 30px;
-            background-color: #00ff00; /* Verde brillante */
+            background-color: #00ff00; 
             position: absolute;
             top: 135px; left: 135px;
             transition: all 0.1s;
             border-radius: 50%;
         }
         #status { color: yellow; font-weight: bold; margin-bottom: 20px;}
+        .debug { font-size: 12px; color: #888; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <h1>🌍 Labirinto Globale</h1>
-    <div id="status">Connessione al server in corso...</div>
+    <h1>🌍 Labirinto Globale (Sicuro)</h1>
+    <div id="status">Connessione al server sicuro in corso...</div>
     
     <div id="game-area">
         <div id="player"></div>
     </div>
     
-    <p>Apri questo sito anche dal telefono!</p>
+    <div class="debug">Premi F12 se non si connette e guarda la Console.</div>
 
     <script>
         // --- CONFIGURAZIONE ---
-        // DEVE ESSERE UGUALE A QUELLO MESSO SU ARDUINO!
+        // ⚠️ INCOLLA QUI LO STESSO TOPIC CHE HAI MESSO SU ARDUINO!
         const topic = "labirinto_abruzzo_test/comandi"; 
         // ----------------------
 
+        // Usiamo la porta 8884 che è quella PROTETTA (WSS)
         const broker = "broker.hivemq.com";
-        const port = 8000; // Porta WebSockets
+        const port = 8884; 
         
-        // Creiamo un ID casuale per il sito
         const clientID = "web_client_" + Math.random().toString(16).substr(2, 8);
         const client = new Paho.MQTT.Client(broker, port, clientID);
 
-        // Posizione Giocatore
         let posX = 135;
         let posY = 135;
         const step = 30;
 
-        // Quando arrivano messaggi
+        client.onConnectionLost = function (responseObject) {
+            document.getElementById('status').innerText = "❌ Connessione Persa: " + responseObject.errorMessage;
+            console.log("Status: " + responseObject.errorMessage);
+        };
+
         client.onMessageArrived = function (message) {
             const comando = message.payloadString;
-            console.log("Arrivato: " + comando);
+            console.log("Comando ricevuto: " + comando);
             
+            // Feedback visivo che è arrivato qualcosa
+            document.getElementById('status').innerText = "✅ Ricevuto: " + comando;
+
             if (comando === "SU" && posY > 0) posY -= step;
             if (comando === "GIU" && posY < 270) posY += step;
             if (comando === "SINISTRA" && posX > 0) posX -= step;
@@ -69,19 +76,21 @@
             player.style.left = posX + 'px';
         };
 
-        // Opzioni di connessione
         const options = {
+            useSSL: true, // <--- QUESTO È IL TRUCCO PER GITHUB PAGES!
             onSuccess: function () {
-                document.getElementById('status').innerText = "✅ Connesso al Mondo!";
-                // Ci iscriviamo al canale per ascoltare Arduino
+                document.getElementById('status').innerText = "✅ Connesso al Server Sicuro!";
                 client.subscribe(topic);
+                console.log("Iscritto al canale: " + topic);
             },
             onFailure: function (e) {
-                document.getElementById('status').innerText = "❌ Errore: " + e.errorMessage;
+                document.getElementById('status').innerText = "❌ Errore Connessione: " + e.errorMessage;
+                console.log(e);
             }
         };
 
-        // Connettiti!
+        // Prova a connettere
+        console.log("Tentativo di connessione a " + broker + ":" + port);
         client.connect(options);
     </script>
 </body>
