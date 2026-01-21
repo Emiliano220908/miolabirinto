@@ -1,131 +1,88 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto Arduino Debug</title>
+    <title>Labirinto IoT Abruzzo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
-        body { 
-            font-family: sans-serif; 
-            text-align: center; 
-            background-color: #222; /* Sfondo scuro */
-            color: white; 
-            padding-top: 50px;
-        }
+        body { font-family: sans-serif; text-align: center; background-color: #222; color: white; padding-top: 50px; }
         #game-area {
-            width: 400px;
-            height: 400px;
+            width: 300px;
+            height: 300px;
             border: 5px solid white;
             margin: 20px auto;
             position: relative;
             background-color: #000;
         }
         #player {
-            width: 40px;
-            height: 40px;
-            background-color: red;
+            width: 30px;
+            height: 30px;
+            background-color: #00ff00; /* Verde brillante */
             position: absolute;
-            top: 180px; 
-            left: 180px; 
-            transition: all 0.1s; 
+            top: 135px; left: 135px;
+            transition: all 0.1s;
+            border-radius: 50%;
         }
-        button { 
-            padding: 15px 30px; 
-            font-size: 20px; 
-            cursor: pointer; 
-            background-color: #4CAF50; 
-            color: white; 
-            border: none; 
-            border-radius: 5px; 
-        }
-        #status {
-            margin-top: 15px;
-            color: yellow;
-            font-weight: bold;
-        }
+        #status { color: yellow; font-weight: bold; margin-bottom: 20px;}
     </style>
 </head>
 <body>
 
-    <h1>🕹️ Labirinto Arduino - Test</h1>
-    
-    <button id="connectBtn">🔌 CONNETTI ARDUINO</button>
-    <div id="status">Stato: Non connesso</div>
+    <h1>🌍 Labirinto Globale</h1>
+    <div id="status">Connessione al server in corso...</div>
     
     <div id="game-area">
         <div id="player"></div>
     </div>
-
-    <p>Premi <b>F12</b> e vai su <b>Console</b> per vedere i dati.</p>
+    
+    <p>Apri questo sito anche dal telefono!</p>
 
     <script>
-        let port;
-        let reader;
+        // --- CONFIGURAZIONE ---
+        // DEVE ESSERE UGUALE A QUELLO MESSO SU ARDUINO!
+        const topic = "labirinto_abruzzo_test/comandi"; 
+        // ----------------------
+
+        const broker = "broker.hivemq.com";
+        const port = 8000; // Porta WebSockets
         
-        // Posizione iniziale
-        let posX = 180;
-        let posY = 180;
-        const step = 40; 
+        // Creiamo un ID casuale per il sito
+        const clientID = "web_client_" + Math.random().toString(16).substr(2, 8);
+        const client = new Paho.MQTT.Client(broker, port, clientID);
 
-        document.getElementById('connectBtn').addEventListener('click', async () => {
-            if ("serial" in navigator) {
-                try {
-                    port = await navigator.serial.requestPort();
-                    await port.open({ baudRate: 9600 });
-                    
-                    const textDecoder = new TextDecoderStream();
-                    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-                    reader = textDecoder.readable.getReader();
-                    
-                    document.getElementById('status').innerText = "✅ Connesso! Muovi il Joystick.";
-                    console.log("Sistema pronto. In attesa di dati...");
-                    readLoop();
-                } catch (err) {
-                    console.error("Errore:", err);
-                    document.getElementById('status').innerText = "❌ Errore: " + err;
-                }
-            } else {
-                alert("Il browser non supporta la seriale. Usa Chrome o Edge.");
+        // Posizione Giocatore
+        let posX = 135;
+        let posY = 135;
+        const step = 30;
+
+        // Quando arrivano messaggi
+        client.onMessageArrived = function (message) {
+            const comando = message.payloadString;
+            console.log("Arrivato: " + comando);
+            
+            if (comando === "SU" && posY > 0) posY -= step;
+            if (comando === "GIU" && posY < 270) posY += step;
+            if (comando === "SINISTRA" && posX > 0) posX -= step;
+            if (comando === "DESTRA" && posX < 270) posX += step;
+
+            const player = document.getElementById('player');
+            player.style.top = posY + 'px';
+            player.style.left = posX + 'px';
+        };
+
+        // Opzioni di connessione
+        const options = {
+            onSuccess: function () {
+                document.getElementById('status').innerText = "✅ Connesso al Mondo!";
+                // Ci iscriviamo al canale per ascoltare Arduino
+                client.subscribe(topic);
+            },
+            onFailure: function (e) {
+                document.getElementById('status').innerText = "❌ Errore: " + e.errorMessage;
             }
-        });
+        };
 
-        async function readLoop() {
-            let buffer = ""; 
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                if (value) {
-                    buffer += value;
-                    
-                    // Se c'è un "a capo", elaboriamo il comando
-                    if (buffer.includes('\n')) {
-                        const comandi = buffer.split('\n');
-                        buffer = comandi.pop(); // Salva il pezzo incompleto per dopo
-
-                        for (let comando of comandi) {
-                            comando = comando.trim(); // Pulisce spazi vuoti e invii
-                            console.log("Comando ricevuto:", comando); // DEBUG NELLA CONSOLE
-                            muoviGiocatore(comando);
-                        }
-                    }
-                }
-            }
-        }
-
-        function muoviGiocatore(direzione) {
-            let moved = false;
-            // Controlla esattamente le parole inviate da Arduino
-            if (direzione === "SU" && posY > 0) { posY -= step; moved = true; }
-            if (direzione === "GIU" && posY < 360) { posY += step; moved = true; }
-            if (direzione === "SINISTRA" && posX > 0) { posX -= step; moved = true; }
-            if (direzione === "DESTRA" && posX < 360) { posX += step; moved = true; }
-
-            if (moved) {
-                const player = document.getElementById('player');
-                player.style.top = posY + 'px';
-                player.style.left = posX + 'px';
-                console.log("Giocatore spostato a:", posX, posY);
-            }
-        }
+        // Connettiti!
+        client.connect(options);
     </script>
 </body>
 </html>
