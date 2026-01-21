@@ -1,7 +1,66 @@
-<script>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Labirinto Arduino Debug</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            text-align: center; 
+            background-color: #222; /* Sfondo scuro */
+            color: white; 
+            padding-top: 50px;
+        }
+        #game-area {
+            width: 400px;
+            height: 400px;
+            border: 5px solid white;
+            margin: 20px auto;
+            position: relative;
+            background-color: #000;
+        }
+        #player {
+            width: 40px;
+            height: 40px;
+            background-color: red;
+            position: absolute;
+            top: 180px; 
+            left: 180px; 
+            transition: all 0.1s; 
+        }
+        button { 
+            padding: 15px 30px; 
+            font-size: 20px; 
+            cursor: pointer; 
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+        }
+        #status {
+            margin-top: 15px;
+            color: yellow;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🕹️ Labirinto Arduino - Test</h1>
+    
+    <button id="connectBtn">🔌 CONNETTI ARDUINO</button>
+    <div id="status">Stato: Non connesso</div>
+    
+    <div id="game-area">
+        <div id="player"></div>
+    </div>
+
+    <p>Premi <b>F12</b> e vai su <b>Console</b> per vedere i dati.</p>
+
+    <script>
         let port;
         let reader;
         
+        // Posizione iniziale
         let posX = 180;
         let posY = 180;
         const step = 40; 
@@ -16,40 +75,35 @@
                     const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
                     reader = textDecoder.readable.getReader();
                     
-                    document.getElementById('status').innerText = "✅ Connesso! Guarda la Console (F12)";
+                    document.getElementById('status').innerText = "✅ Connesso! Muovi il Joystick.";
+                    console.log("Sistema pronto. In attesa di dati...");
                     readLoop();
                 } catch (err) {
                     console.error("Errore:", err);
-                    alert("Errore di connessione: " + err);
+                    document.getElementById('status').innerText = "❌ Errore: " + err;
                 }
             } else {
-                alert("Il tuo browser non supporta la Web Serial. Usa Chrome o Edge aggiornati.");
+                alert("Il browser non supporta la seriale. Usa Chrome o Edge.");
             }
         });
 
         async function readLoop() {
-            let buffer = ""; // Memoria temporanea per i pezzi di testo
+            let buffer = ""; 
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
                 if (value) {
-                    // Metti tutto quello che arriva nel buffer
                     buffer += value;
                     
-                    // Stampiamo nella console quello che arriva grezzo (per debug)
-                    console.log("Dati grezzi ricevuti:", value);
-
-                    // Se c'è un "a capo", significa che il comando è finito
+                    // Se c'è un "a capo", elaboriamo il comando
                     if (buffer.includes('\n')) {
                         const comandi = buffer.split('\n');
-                        
-                        // L'ultimo pezzo potrebbe essere incompleto, lo rimettiamo nel buffer
-                        buffer = comandi.pop(); 
+                        buffer = comandi.pop(); // Salva il pezzo incompleto per dopo
 
                         for (let comando of comandi) {
-                            comando = comando.trim(); // Pulisci spazi vuoti
-                            console.log("Comando pulito:", comando); // DEBUG
+                            comando = comando.trim(); // Pulisce spazi vuoti e invii
+                            console.log("Comando ricevuto:", comando); // DEBUG NELLA CONSOLE
                             muoviGiocatore(comando);
                         }
                     }
@@ -58,14 +112,20 @@
         }
 
         function muoviGiocatore(direzione) {
-            // Controlliamo ESATTAMENTE cosa arriva (case sensitive)
-            if (direzione === "SU" && posY > 0) posY -= step;
-            if (direzione === "GIU" && posY < 360) posY += step;
-            if (direzione === "SINISTRA" && posX > 0) posX -= step;
-            if (direzione === "DESTRA" && posX < 360) posX += step;
+            let moved = false;
+            // Controlla esattamente le parole inviate da Arduino
+            if (direzione === "SU" && posY > 0) { posY -= step; moved = true; }
+            if (direzione === "GIU" && posY < 360) { posY += step; moved = true; }
+            if (direzione === "SINISTRA" && posX > 0) { posX -= step; moved = true; }
+            if (direzione === "DESTRA" && posX < 360) { posX += step; moved = true; }
 
-            const player = document.getElementById('player');
-            player.style.top = posY + 'px';
-            player.style.left = posX + 'px';
+            if (moved) {
+                const player = document.getElementById('player');
+                player.style.top = posY + 'px';
+                player.style.left = posX + 'px';
+                console.log("Giocatore spostato a:", posX, posY);
+            }
         }
     </script>
+</body>
+</html>
