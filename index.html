@@ -1,127 +1,260 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto Grafico + Joystick</title>
+    <title>Labirinto 3 Livelli + Joystick</title>
     <style>
         body { 
-            font-family: sans-serif; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             text-align: center; 
-            background-color: #222; 
+            background-color: #1a1a1a; 
             color: white; 
-            padding-top: 20px;
+            padding-top: 10px;
+            overflow: hidden; /* Evita scrollbar se possibile */
         }
         
-        /* L'area di gioco ora è una griglia */
+        h1 { margin-bottom: 5px; font-size: 24px; }
+
+        /* L'area di gioco dinamica */
         #game-area {
-            width: 400px;
-            height: 400px;
-            border: 5px solid white;
-            margin: 20px auto;
+            margin: 10px auto;
             position: relative;
             background-color: #000;
             display: grid;
-            grid-template-columns: repeat(10, 40px); /* 10 colonne da 40px */
-            grid-template-rows: repeat(10, 40px);    /* 10 righe da 40px */
+            /* La griglia viene definita da JS in base alla mappa */
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(0,255,0,0.2);
         }
 
-        /* Stile dei muri */
+        /* Tipi di caselle */
+        .cell { box-sizing: border-box; }
+        
         .wall {
-            background-color: #666; /* Grigio */
-            border: 1px solid #444;
-            box-sizing: border-box;
+            background-color: #555; /* Muro Grigio */
+            border: 1px solid #333;
         }
 
-        /* Stile del percorso (vuoto) */
         .path {
-            background-color: transparent;
+            background-color: transparent; /* Strada Nera */
+        }
+
+        .goal {
+            background-color: #0088ff; /* TRAGUARDO BLU */
+            box-shadow: inset 0 0 10px #fff;
+            animation: pulse 1s infinite alternate;
         }
 
         /* Il Giocatore */
         #player {
-            width: 30px;  /* Leggermente più piccolo della casella per estetica */
-            height: 30px;
             background-color: #00ff00; /* Verde acceso */
             position: absolute;
-            transition: top 0.1s, left 0.1s;
-            border-radius: 5px;
-            z-index: 10; /* Sta sopra i muri */
-            
-            /* Centriamo il player nella casella */
-            margin-top: 5px; 
-            margin-left: 5px;
+            transition: top 0.1s, left 0.1s; /* Movimento fluido */
+            border-radius: 50%; /* Pallino rotondo */
+            z-index: 10;
+            box-shadow: 0 0 10px #00ff00;
         }
 
+        /* UI */
+        #level-indicator { font-size: 20px; color: #0088ff; margin-bottom: 10px; }
+        
         button { 
-            padding: 15px 30px; 
-            font-size: 20px; 
+            padding: 10px 20px; 
+            font-size: 16px; 
             cursor: pointer; 
             background-color: #4CAF50; 
             color: white; 
             border: none; 
             border-radius: 5px; 
+            margin-bottom: 10px;
         }
-        #status { margin-top: 15px; color: yellow; font-weight: bold; }
+
+        @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <h1>🕹️ Labirinto Grafico</h1>
+    <h1>🏆 Labirinto: 3 Livelli</h1>
+    <div id="level-indicator">Livello 1 di 3</div>
     
     <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
-    <p>Oppure premi un tasto sul Joystick Bluetooth collegato al PC</p>
-    
-    <div id="status">Stato: In attesa...</div>
+    <div id="status" style="font-size: 14px; color: #888;">Usa Joystick Arduino o Bluetooth</div>
     
     <div id="game-area">
         <div id="player"></div>
     </div>
 
     <script>
-        let port, reader;
+        // --- CONFIGURAZIONE ---
+        const cellSize = 30; // Dimensione casella (più piccola per farne stare di più)
         
-        // --- CONFIGURAZIONE LABIRINTO (1 = Muro, 0 = Strada) ---
-        // Griglia 10x10. Ogni casella è 40px.
-        const map = [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-            [1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
-            [1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-            [1, 0, 1, 0, 1, 1, 1, 1, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 1, 1, 1, 1, 0, 1, 1, 1, 1],
-            [1, 0, 0, 0, 1, 0, 1, 0, 0, 1],
-            [1, 0, 1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        // LEGENDA MAPPA: 0=Strada, 1=Muro, 2=TRAGUARDO
+        // Mappe 20 colonne x 12 righe (Più larghe)
+        const levels = [
+            // LIVELLO 1: Facile
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],
+                [1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],
+                [1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
+                [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], // Traguardo in basso a dx
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // LIVELLO 2: Medio
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
+                [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
+                [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
+                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], // Traguardo a sinistra
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // LIVELLO 3: Labirinto a zig zag
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], // Traguardo al centro
+                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ]
         ];
 
-        // Posizione Iniziale (Griglia X, Y) -> Corrisponde a map[1][1]
-        let gridX = 1;
-        let gridY = 1;
-        const cellSize = 40; // Grandezza casella in pixel
+        let currentLevelIndex = 0;
+        let map = [];
+        let gridX = 1; // Start X
+        let gridY = 1; // Start Y
+        let lastMoveTime = 0;
 
-        // --- DISEGNA IL LABIRINTO ---
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
+        const levelText = document.getElementById('level-indicator');
 
-        function drawMaze() {
-            for (let r = 0; r < 10; r++) {
-                for (let c = 0; c < 10; c++) {
+        // --- CARICA LIVELLO ---
+        function loadLevel(index) {
+            if (index >= levels.length) {
+                alert("🏆 HAI VINTO TUTTO IL GIOCO! 🏆");
+                currentLevelIndex = 0;
+                loadLevel(0);
+                return;
+            }
+
+            // Pulisci vecchia mappa
+            gameArea.innerHTML = '';
+            map = levels[index];
+            currentLevelIndex = index;
+            levelText.innerText = "Livello " + (index + 1) + " di " + levels.length;
+
+            // Reset Posizione Giocatore (Sempre 1,1 all'inizio)
+            gridX = 1;
+            gridY = 1;
+
+            // Imposta dimensioni griglia CSS dinamiche
+            const rows = map.length;
+            const cols = map[0].length;
+            gameArea.style.width = (cols * cellSize) + "px";
+            gameArea.style.height = (rows * cellSize) + "px";
+            gameArea.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+            gameArea.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+
+            // Disegna Muri e Traguardo
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
                     const cell = document.createElement('div');
-                    if (map[r][c] === 1) {
-                        cell.classList.add('wall');
-                    } else {
-                        cell.classList.add('path');
-                    }
-                    gameArea.appendChild(cell); // Aggiunge la casella al gioco
+                    cell.classList.add('cell');
+                    if (map[r][c] === 1) cell.classList.add('wall');
+                    if (map[r][c] === 0) cell.classList.add('path');
+                    if (map[r][c] === 2) cell.classList.add('goal');
+                    gameArea.appendChild(cell);
                 }
             }
-            // Rimettiamo il player sopra a tutto
+
+            // Aggiungi Giocatore
+            player.style.width = (cellSize - 6) + "px";
+            player.style.height = (cellSize - 6) + "px";
+            player.style.margin = "3px"; // Centratura
             gameArea.appendChild(player);
             updatePlayerPosition();
         }
-        drawMaze(); // Avvia disegno
 
-        // --- CONNESSIONE ARDUINO (USB) ---
+        // Avvia il primo livello
+        loadLevel(0);
+
+        // --- MOVIMENTO E LOGICA GIOCO ---
+        function muoviGiocatore(direzione) {
+            let nextX = gridX;
+            let nextY = gridY;
+
+            if (direzione === "SU") nextY--;
+            if (direzione === "GIU") nextY++;
+            if (direzione === "SINISTRA") nextX--;
+            if (direzione === "DESTRA") nextX++;
+
+            // Controlli limiti array
+            if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
+                const targetCell = map[nextY][nextX];
+
+                if (targetCell === 0) {
+                    // Cammina
+                    gridX = nextX;
+                    gridY = nextY;
+                    updatePlayerPosition();
+                    lastMoveTime = Date.now();
+                } else if (targetCell === 2) {
+                    // TRAGUARDO!
+                    gridX = nextX;
+                    gridY = nextY;
+                    updatePlayerPosition();
+                    setTimeout(() => {
+                        alert("🎉 LIVELLO SUPERATO!");
+                        loadLevel(currentLevelIndex + 1);
+                    }, 100);
+                }
+            }
+        }
+
+        function updatePlayerPosition() {
+            player.style.top = (gridY * cellSize) + 'px';
+            player.style.left = (gridX * cellSize) + 'px';
+        }
+
+        // --- INPUT JOYSTICK BLUETOOTH ---
+        function gameLoop() {
+            const gamepads = navigator.getGamepads();
+            const gp = gamepads[0]; 
+
+            if (gp && Date.now() - lastMoveTime > 150) { 
+                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
+                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
+                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
+                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
+            }
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop(); 
+
+        window.addEventListener("gamepadconnected", () => {
+            document.getElementById('status').innerText = "🎮 Controller Connesso!";
+        });
+
+        // --- INPUT ARDUINO USB ---
+        let port, reader;
         document.getElementById('connectBtn').addEventListener('click', async () => {
             if ("serial" in navigator) {
                 try {
@@ -130,16 +263,15 @@
                     const textDecoder = new TextDecoderStream();
                     port.readable.pipeTo(textDecoder.writable);
                     reader = textDecoder.readable.getReader();
-                    document.getElementById('status').innerText = "✅ Arduino Connesso!";
-                    readLoop();
+                    document.getElementById('status').innerText = "✅ Arduino USB Connesso!";
+                    readSerialLoop();
                 } catch (err) {
-                    document.getElementById('status').innerText = "❌ Errore: " + err;
+                    alert("Errore USB: " + err);
                 }
             }
         });
 
-        // Legge Arduino USB
-        async function readLoop() {
+        async function readSerialLoop() {
             let buffer = ""; 
             while (true) {
                 const { value, done } = await reader.read();
@@ -153,60 +285,6 @@
                     }
                 }
             }
-        }
-
-        // --- GESTIONE JOYSTICK BLUETOOTH (PC DIRETTO) ---
-        // Se colleghi il joy al PC via Bluetooth, questo loop lo legge
-        let lastMoveTime = 0;
-        function gameLoop() {
-            const gamepads = navigator.getGamepads();
-            const gp = gamepads[0]; // Primo controller connesso
-
-            if (gp && Date.now() - lastMoveTime > 150) { // Ritardo per non correre troppo
-                // Analogico Sinistro
-                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
-                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
-                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
-                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
-            }
-            requestAnimationFrame(gameLoop);
-        }
-        gameLoop(); // Avvia il controllo Joystick continuo
-
-        window.addEventListener("gamepadconnected", () => {
-            document.getElementById('status').innerText = "🎮 Joystick Bluetooth Trovato!";
-        });
-
-        // --- LOGICA DI MOVIMENTO E COLLISIONI ---
-        function muoviGiocatore(direzione) {
-            let nextX = gridX;
-            let nextY = gridY;
-
-            // Calcola dove vorresti andare
-            if (direzione === "SU") nextY--;
-            if (direzione === "GIU") nextY++;
-            if (direzione === "SINISTRA") nextX--;
-            if (direzione === "DESTRA") nextX++;
-
-            // CONTROLLO MURI: Ci muoviamo solo se nella mappa c'è 0 (strada)
-            // e non usciamo dai bordi (0-9)
-            if (nextX >= 0 && nextX < 10 && nextY >= 0 && nextY < 10) {
-                if (map[nextY][nextX] === 0) {
-                    // Strada libera! Aggiorna posizione
-                    gridX = nextX;
-                    gridY = nextY;
-                    updatePlayerPosition();
-                    lastMoveTime = Date.now(); // Reset timer per joystick
-                } else {
-                    console.log("SBAM! Hai preso un muro.");
-                }
-            }
-        }
-
-        function updatePlayerPosition() {
-            // Moltiplichiamo la griglia per 40px per trovare i pixel reali
-            player.style.top = (gridY * cellSize) + 'px';
-            player.style.left = (gridX * cellSize) + 'px';
         }
     </script>
 </body>
