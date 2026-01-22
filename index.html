@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto Arduino Debug</title>
+    <title>Labirinto Grafico + Joystick</title>
     <style>
         body { 
             font-family: sans-serif; 
             text-align: center; 
-            background-color: #222; /* Sfondo scuro */
+            background-color: #222; 
             color: white; 
-            padding-top: 50px;
+            padding-top: 20px;
         }
+        
+        /* L'area di gioco ora è una griglia */
         #game-area {
             width: 400px;
             height: 400px;
@@ -17,16 +19,38 @@
             margin: 20px auto;
             position: relative;
             background-color: #000;
+            display: grid;
+            grid-template-columns: repeat(10, 40px); /* 10 colonne da 40px */
+            grid-template-rows: repeat(10, 40px);    /* 10 righe da 40px */
         }
+
+        /* Stile dei muri */
+        .wall {
+            background-color: #666; /* Grigio */
+            border: 1px solid #444;
+            box-sizing: border-box;
+        }
+
+        /* Stile del percorso (vuoto) */
+        .path {
+            background-color: transparent;
+        }
+
+        /* Il Giocatore */
         #player {
-            width: 40px;
-            height: 40px;
-            background-color: red;
+            width: 30px;  /* Leggermente più piccolo della casella per estetica */
+            height: 30px;
+            background-color: #00ff00; /* Verde acceso */
             position: absolute;
-            top: 180px; 
-            left: 180px; 
-            transition: all 0.1s; 
+            transition: top 0.1s, left 0.1s;
+            border-radius: 5px;
+            z-index: 10; /* Sta sopra i muri */
+            
+            /* Centriamo il player nella casella */
+            margin-top: 5px; 
+            margin-left: 5px;
         }
+
         button { 
             padding: 15px 30px; 
             font-size: 20px; 
@@ -36,95 +60,153 @@
             border: none; 
             border-radius: 5px; 
         }
-        #status {
-            margin-top: 15px;
-            color: yellow;
-            font-weight: bold;
-        }
+        #status { margin-top: 15px; color: yellow; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h1>🕹️ Labirinto Arduino - Test</h1>
+    <h1>🕹️ Labirinto Grafico</h1>
     
-    <button id="connectBtn">🔌 CONNETTI ARDUINO</button>
-    <div id="status">Stato: Non connesso</div>
+    <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
+    <p>Oppure premi un tasto sul Joystick Bluetooth collegato al PC</p>
+    
+    <div id="status">Stato: In attesa...</div>
     
     <div id="game-area">
         <div id="player"></div>
     </div>
 
-    <p>Premi <b>F12</b> e vai su <b>Console</b> per vedere i dati.</p>
-
     <script>
-        let port;
-        let reader;
+        let port, reader;
         
-        // Posizione iniziale
-        let posX = 180;
-        let posY = 180;
-        const step = 40; 
+        // --- CONFIGURAZIONE LABIRINTO (1 = Muro, 0 = Strada) ---
+        // Griglia 10x10. Ogni casella è 40px.
+        const map = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+            [1, 0, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 0, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ];
 
+        // Posizione Iniziale (Griglia X, Y) -> Corrisponde a map[1][1]
+        let gridX = 1;
+        let gridY = 1;
+        const cellSize = 40; // Grandezza casella in pixel
+
+        // --- DISEGNA IL LABIRINTO ---
+        const gameArea = document.getElementById('game-area');
+        const player = document.getElementById('player');
+
+        function drawMaze() {
+            for (let r = 0; r < 10; r++) {
+                for (let c = 0; c < 10; c++) {
+                    const cell = document.createElement('div');
+                    if (map[r][c] === 1) {
+                        cell.classList.add('wall');
+                    } else {
+                        cell.classList.add('path');
+                    }
+                    gameArea.appendChild(cell); // Aggiunge la casella al gioco
+                }
+            }
+            // Rimettiamo il player sopra a tutto
+            gameArea.appendChild(player);
+            updatePlayerPosition();
+        }
+        drawMaze(); // Avvia disegno
+
+        // --- CONNESSIONE ARDUINO (USB) ---
         document.getElementById('connectBtn').addEventListener('click', async () => {
             if ("serial" in navigator) {
                 try {
                     port = await navigator.serial.requestPort();
                     await port.open({ baudRate: 9600 });
-                    
                     const textDecoder = new TextDecoderStream();
-                    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                    port.readable.pipeTo(textDecoder.writable);
                     reader = textDecoder.readable.getReader();
-                    
-                    document.getElementById('status').innerText = "✅ Connesso! Muovi il Joystick.";
-                    console.log("Sistema pronto. In attesa di dati...");
+                    document.getElementById('status').innerText = "✅ Arduino Connesso!";
                     readLoop();
                 } catch (err) {
-                    console.error("Errore:", err);
                     document.getElementById('status').innerText = "❌ Errore: " + err;
                 }
-            } else {
-                alert("Il browser non supporta la seriale. Usa Chrome o Edge.");
             }
         });
 
+        // Legge Arduino USB
         async function readLoop() {
             let buffer = ""; 
-
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
                 if (value) {
                     buffer += value;
-                    
-                    // Se c'è un "a capo", elaboriamo il comando
                     if (buffer.includes('\n')) {
                         const comandi = buffer.split('\n');
-                        buffer = comandi.pop(); // Salva il pezzo incompleto per dopo
-
-                        for (let comando of comandi) {
-                            comando = comando.trim(); // Pulisce spazi vuoti e invii
-                            console.log("Comando ricevuto:", comando); // DEBUG NELLA CONSOLE
-                            muoviGiocatore(comando);
-                        }
+                        buffer = comandi.pop(); 
+                        for (let cmd of comandi) muoviGiocatore(cmd.trim());
                     }
                 }
             }
         }
 
-        function muoviGiocatore(direzione) {
-            let moved = false;
-            // Controlla esattamente le parole inviate da Arduino
-            if (direzione === "SU" && posY > 0) { posY -= step; moved = true; }
-            if (direzione === "GIU" && posY < 360) { posY += step; moved = true; }
-            if (direzione === "SINISTRA" && posX > 0) { posX -= step; moved = true; }
-            if (direzione === "DESTRA" && posX < 360) { posX += step; moved = true; }
+        // --- GESTIONE JOYSTICK BLUETOOTH (PC DIRETTO) ---
+        // Se colleghi il joy al PC via Bluetooth, questo loop lo legge
+        let lastMoveTime = 0;
+        function gameLoop() {
+            const gamepads = navigator.getGamepads();
+            const gp = gamepads[0]; // Primo controller connesso
 
-            if (moved) {
-                const player = document.getElementById('player');
-                player.style.top = posY + 'px';
-                player.style.left = posX + 'px';
-                console.log("Giocatore spostato a:", posX, posY);
+            if (gp && Date.now() - lastMoveTime > 150) { // Ritardo per non correre troppo
+                // Analogico Sinistro
+                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
+                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
+                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
+                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
             }
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop(); // Avvia il controllo Joystick continuo
+
+        window.addEventListener("gamepadconnected", () => {
+            document.getElementById('status').innerText = "🎮 Joystick Bluetooth Trovato!";
+        });
+
+        // --- LOGICA DI MOVIMENTO E COLLISIONI ---
+        function muoviGiocatore(direzione) {
+            let nextX = gridX;
+            let nextY = gridY;
+
+            // Calcola dove vorresti andare
+            if (direzione === "SU") nextY--;
+            if (direzione === "GIU") nextY++;
+            if (direzione === "SINISTRA") nextX--;
+            if (direzione === "DESTRA") nextX++;
+
+            // CONTROLLO MURI: Ci muoviamo solo se nella mappa c'è 0 (strada)
+            // e non usciamo dai bordi (0-9)
+            if (nextX >= 0 && nextX < 10 && nextY >= 0 && nextY < 10) {
+                if (map[nextY][nextX] === 0) {
+                    // Strada libera! Aggiorna posizione
+                    gridX = nextX;
+                    gridY = nextY;
+                    updatePlayerPosition();
+                    lastMoveTime = Date.now(); // Reset timer per joystick
+                } else {
+                    console.log("SBAM! Hai preso un muro.");
+                }
+            }
+        }
+
+        function updatePlayerPosition() {
+            // Moltiplichiamo la griglia per 40px per trovare i pixel reali
+            player.style.top = (gridY * cellSize) + 'px';
+            player.style.left = (gridX * cellSize) + 'px';
         }
     </script>
 </body>
