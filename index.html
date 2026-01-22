@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v4 (Final Fighter)</title>
+    <title>Console Arduino v5 (Turbo Fighter)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -110,12 +110,12 @@
             width: 30px; height: 30px;
             background-color: #00ffcc; 
             position: absolute; 
-            bottom: 20px; /* BLOCCATO SUL FONDO */
-            left: 0;      /* La X la gestiamo con translate per fluidità */
+            bottom: 20px; 
+            left: 0;      
             clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
             box-shadow: 0 0 10px #00ffcc;
-            transform: translateX(185px); /* Posizione Iniziale */
-            will-change: transform; /* Ottimizzazione GPU */
+            transform: translateX(185px); 
+            will-change: transform; 
         }
 
         .bullet {
@@ -154,7 +154,7 @@
             <div class="game-card" onclick="openGame('fighter')">
                 <div class="card-icon" style="color:#ff0055">🚀</div>
                 <div class="card-title">Fighter War</div>
-                <div class="card-desc">Solo Orizzontale</div>
+                <div class="card-desc">TURBO MODE</div>
             </div>
         </div>
         
@@ -332,7 +332,7 @@
         }
 
         // =========================================================
-        //                 GIOCO 2: FIGHTER WAR (Aggiornato)
+        //                 GIOCO 2: FIGHTER WAR (TURBO)
         // =========================================================
         let fighterX = 185;
         let fighterScore = 0;
@@ -340,8 +340,8 @@
         let bullets = [];
         let enemies = [];
         
-        // VELOCITÀ ALTA PER FLUIDITÀ
-        let fighterSpeed = 10; 
+        // --- VELOCITÀ RADDOPPIATA (DA 10 a 20) ---
+        let fighterSpeed = 20; 
 
         function startFighterGame() {
             fighterX = 185; fighterScore = 0;
@@ -367,7 +367,6 @@
             // SOLO DESTRA E SINISTRA
             if(dir==="SINISTRA" && fighterX > 0) fighterX -= fighterSpeed;
             if(dir==="DESTRA" && fighterX < 370) fighterX += fighterSpeed;
-            // IGNORIAMO COMPLETAMENTE SU E GIU
             
             updateFighterPos();
         }
@@ -421,7 +420,6 @@
                 }
                 
                 // COLLISIONE GIOCATORE -> NEMICO (DISTRUZIONE NEMICO)
-                // Y fissa a 450 (bottom 20px in box 500px)
                 let playerObj = { x: fighterX, y: 450, w: 30, h: 30 };
                 if (enemies[i] && isColliding(enemies[i], playerObj)) {
                     enemies[i].el.remove();
