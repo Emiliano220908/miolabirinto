@@ -1,79 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto Calibrato</title>
+    <title>Labirinto DIAGNOSTICA</title>
     <style>
         body { 
-            font-family: 'Segoe UI', sans-serif; 
+            font-family: monospace; 
             text-align: center; 
-            background-color: #1a1a1a; 
+            background-color: #111; 
             color: white; 
             padding-top: 10px;
             overflow: hidden; 
         }
-        
-        /* Area di Gioco */
+
+        #dashboard {
+            background: #222;
+            border: 2px solid #555;
+            padding: 10px;
+            margin: 0 auto 10px auto;
+            width: 80%;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .debug-line { margin: 5px 0; font-size: 16px; color: #0f0; }
+        .error-line { color: #f55; }
+
         #game-area {
-            margin: 10px auto;
+            margin: 0 auto;
             position: relative;
             background-color: #000;
             display: grid;
             border: 4px solid #fff;
-            box-shadow: 0 0 20px rgba(0,255,0,0.2);
-            transition: border-color 0.2s; 
         }
 
-        /* Caselle */
         .cell { box-sizing: border-box; }
-        .wall { background-color: #555; border: 1px solid #333; }
-        .path { background-color: transparent; }
-        .goal {
-            background-color: #0088ff; 
-            box-shadow: inset 0 0 10px #fff;
-            animation: pulse 1s infinite alternate;
-        }
+        .wall { background-color: #666; border: 1px solid #444; }
+        .path { background-color: #000; } /* Strada nera ben visibile */
+        .goal { background-color: blue; }
 
-        /* Giocatore */
         #player {
-            background-color: #00ff00; 
+            background-color: #0f0; 
             position: absolute;
-            transition: top 0.1s, left 0.1s; 
+            transition: all 0.1s; 
             border-radius: 50%; 
             z-index: 10;
-            box-shadow: 0 0 10px #00ff00;
+            box-shadow: 0 0 5px #0f0;
         }
-
-        /* Pannello di Controllo */
-        #controls-panel {
-            background-color: #333;
-            padding: 15px;
-            border-radius: 10px;
-            display: inline-block;
-            margin-bottom: 15px;
-            border: 1px solid #555;
-        }
-
-        label { margin: 0 10px; font-size: 18px; cursor: pointer; }
-        input[type="checkbox"] { transform: scale(1.5); margin-right: 5px; }
-
-        #debug-text { color: yellow; font-family: monospace; margin-top: 5px; height: 20px;}
-        button { padding: 8px 15px; font-size: 16px; cursor: pointer; background: #4CAF50; border: none; color: white; border-radius: 4px; }
-
-        @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div id="controls-panel">
-        <h3>🔧 Calibrazione Joystick</h3>
-        <label><input type="checkbox" id="invY"> Inverti Su/Giù</label>
-        <label><input type="checkbox" id="invX"> Inverti Destra/Sinistra</label>
-        <div id="debug-text">In attesa di input...</div>
-    </div>
-
-    <div>
-        <span id="level-indicator" style="font-size: 20px; color: #0088ff;">Livello 1</span>
-        <button id="connectBtn" style="margin-left: 20px;">🔌 USB Arduino</button>
+    <h1>🔧 MODALITÀ DIAGNOSTICA (INVINCIBILE)</h1>
+    
+    <div id="dashboard">
+        <div class="debug-line">🕹️ JOYSTICK INPUT: <span id="raw-values" style="color:yellow">In attesa...</span></div>
+        <div class="debug-line">📍 POSIZIONE PLAYER: <span id="player-pos">1, 1</span></div>
+        <div class="debug-line">📝 LOGICA GIOCO: <span id="game-log">Muovi la levetta per testare...</span></div>
+        <button id="connectBtn" style="margin-top:5px; padding:5px;">🔌 Connetti Arduino USB</button>
     </div>
     
     <div id="game-area">
@@ -83,78 +66,33 @@
     <script>
         // --- CONFIGURAZIONE ---
         const cellSize = 30; 
-        const MOVE_DELAY = 150; // Ritardo anti-mitragliatrice
+        const MOVE_DELAY = 150; 
         
-        // Mappa Livelli
-        const levels = [
-            [ // Livello 1
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],
-                [1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],
-                [1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
-                [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            [ // Livello 2
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
-                [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
-                [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
-                [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
-                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            [ // Livello 3
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
-                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
-                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
-                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], 
-                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
-                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
-                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ]
+        // Uso solo il Livello 1 per il test, molto semplice
+        const map = [
+                [1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,1], // Start è a 1,1 (la prima 0)
+                [1,0,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,0,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,2,1],
+                [1,1,1,1,1,1,1,1,1,1]
         ];
 
-        let currentLevelIndex = 0;
-        let map = [];
         let gridX = 1; 
         let gridY = 1; 
         let lastMoveTime = 0;
 
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
-        const debugText = document.getElementById('debug-text');
+        const rawValuesTxt = document.getElementById('raw-values');
+        const playerPosTxt = document.getElementById('player-pos');
+        const gameLogTxt = document.getElementById('game-log');
 
-        // --- CARICA LIVELLO ---
-        function loadLevel(index) {
-            if (index >= levels.length) {
-                alert("🏆 GIOCO FINITO!");
-                loadLevel(0);
-                return;
-            }
-            gameArea.innerHTML = '';
-            map = levels[index];
-            currentLevelIndex = index;
-            document.getElementById('level-indicator').innerText = "Livello " + (index + 1);
-
-            gridX = 1; gridY = 1;
-
+        // --- DISEGNA MAPPA ---
+        function initMap() {
             const rows = map.length;
             const cols = map[0].length;
             gameArea.style.width = (cols * cellSize) + "px";
@@ -167,19 +105,18 @@
                     const cell = document.createElement('div');
                     cell.classList.add('cell');
                     if (map[r][c] === 1) cell.classList.add('wall');
-                    if (map[r][c] === 0) cell.classList.add('path');
-                    if (map[r][c] === 2) cell.classList.add('goal');
+                    else if (map[r][c] === 0) cell.classList.add('path');
+                    else if (map[r][c] === 2) cell.classList.add('goal');
                     gameArea.appendChild(cell);
                 }
             }
             gameArea.appendChild(player);
             updatePlayerPosition();
         }
-        loadLevel(0);
+        initMap();
 
-        // --- MOVIMENTO ---
+        // --- LOGICA MOVIMENTO DIAGNOSTICA ---
         function muoviGiocatore(direzione) {
-            // Freno temporale
             if (Date.now() - lastMoveTime < MOVE_DELAY) return;
 
             let nextX = gridX;
@@ -190,31 +127,39 @@
             if (direzione === "SINISTRA") nextX--;
             if (direzione === "DESTRA") nextX++;
 
-            // Controllo Limiti e Muri
+            // Log del tentativo
+            gameLogTxt.innerText = `Provo ${direzione} verso [X:${nextX}, Y:${nextY}]...`;
+
             if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
                 const targetCell = map[nextY][nextX];
 
                 if (targetCell === 0) {
+                    // OK
                     gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
-                    debugText.innerText = "Spostato a: " + direzione;
+                    gameLogTxt.innerText += " ✅ OK! Strada libera.";
+                    gameLogTxt.style.color = "#0f0";
                 } else if (targetCell === 1) {
-                    deathEffect();
-                    gridX = 1; gridY = 1; // Respawn
-                    updatePlayerPosition();
-                    debugText.innerText = "❌ SBATTUTO CONTRO MURO (" + direzione + ")";
+                    // MURO - MA NON RESETTO
+                    gameLogTxt.innerText += " 🧱 MURO! (Valore 1). Bloccato.";
+                    gameLogTxt.style.color = "#f55";
+                    flashRed();
                 } else if (targetCell === 2) {
                     gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
-                    setTimeout(() => { alert("LIVELLO SUPERATO!"); loadLevel(currentLevelIndex + 1); }, 100);
+                    gameLogTxt.innerText += " 🏆 VITTORIA!";
                 }
-                lastMoveTime = Date.now();
+            } else {
+                 gameLogTxt.innerText += " 🚫 FUORI MAPPA.";
             }
+            
+            playerPosTxt.innerText = `${gridX}, ${gridY}`;
+            lastMoveTime = Date.now();
         }
 
-        function deathEffect() {
+        function flashRed() {
             gameArea.style.borderColor = "red";
-            setTimeout(() => { gameArea.style.borderColor = "white"; }, 300);
+            setTimeout(() => { gameArea.style.borderColor = "white"; }, 200);
         }
 
         function updatePlayerPosition() {
@@ -222,28 +167,26 @@
             player.style.left = (gridX * cellSize) + 'px';
         }
 
-        // --- JOYSTICK LOOP ---
+        // --- JOYSTICK LOOP DIAGNOSTICO ---
         function gameLoop() {
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0]; 
             
             if (gp) {
-                // Leggiamo i checkbox per vedere se dobbiamo invertire
-                const invertiY = document.getElementById('invY').checked;
-                const invertiX = document.getElementById('invX').checked;
+                // VISUALIZZA I VALORI GREZZI
+                // Arrotondiamo a 2 decimali per leggere meglio
+                const ax0 = gp.axes[0].toFixed(2);
+                const ax1 = gp.axes[1].toFixed(2);
+                
+                rawValuesTxt.innerText = `Asse 0 (X): ${ax0} | Asse 1 (Y): ${ax1}`;
 
-                // Asse Y (Su/Giù)
-                let valY = gp.axes[1];
-                if (invertiY) valY = -valY; // Inverte il valore
-
-                // Asse X (Destra/Sinistra)
-                let valX = gp.axes[0];
-                if (invertiX) valX = -valX; // Inverte il valore
-
-                if (valY < -0.5) muoviGiocatore("SU");
-                else if (valY > 0.5) muoviGiocatore("GIU");
-                else if (valX < -0.5) muoviGiocatore("SINISTRA");
-                else if (valX > 0.5) muoviGiocatore("DESTRA");
+                // Logica standard
+                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
+                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
+                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
+                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
+            } else {
+                rawValuesTxt.innerText = "Nessun Controller rilevato. Premi un tasto.";
             }
             requestAnimationFrame(gameLoop);
         }
@@ -260,8 +203,7 @@
                     port.readable.pipeTo(textDecoder.writable);
                     reader = textDecoder.readable.getReader();
                     readSerialLoop();
-                    document.getElementById('connectBtn').style.background = "#0088ff";
-                    document.getElementById('connectBtn').innerText = "Connesso";
+                    document.getElementById('connectBtn').innerText = "✅ USB Connesso";
                 } catch (err) { alert("Errore: " + err); }
             }
         });
