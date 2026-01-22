@@ -1,123 +1,201 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto SENSIBILE</title>
+    <title>Labirinto 5 Livelli Hardcore</title>
     <style>
         body { 
-            font-family: monospace; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             text-align: center; 
-            background-color: #111; 
+            background-color: #1a1a1a; 
             color: white; 
             padding-top: 10px;
             overflow: hidden; 
         }
+        
+        h1 { margin-bottom: 5px; font-size: 24px; }
 
-        /* FRECCE DIAGNOSTICHE */
-        #arrows-container {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin: 10px 0;
-        }
-        .arrow-box {
-            width: 40px;
-            height: 40px;
-            border: 2px solid #555;
-            line-height: 40px;
-            font-size: 20px;
-            background: #222;
-            color: #555;
-            border-radius: 5px;
-        }
-        .arrow-active {
-            background-color: #f00 !important; /* ROSSO QUANDO ATTIVO */
-            color: white !important;
-            border-color: #f00 !important;
-            box-shadow: 0 0 10px #f00;
-        }
-
-        #dashboard {
-            background: #222;
-            border: 2px solid #555;
-            padding: 10px;
-            margin: 0 auto 10px auto;
-            width: 90%;
-            border-radius: 10px;
-            text-align: left;
-            font-size: 14px;
-        }
-
+        /* L'area di gioco dinamica */
         #game-area {
-            margin: 0 auto;
+            margin: 10px auto;
             position: relative;
             background-color: #000;
             display: grid;
             border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(0,255,0,0.2);
+            transition: border-color 0.2s; /* Per l'effetto flash rosso */
         }
 
+        /* Tipi di caselle */
         .cell { box-sizing: border-box; }
-        .wall { background-color: #666; border: 1px solid #444; }
-        .path { background-color: #000; } 
-        .goal { background-color: blue; }
+        
+        .wall {
+            background-color: #555; 
+            border: 1px solid #333;
+        }
 
+        .path {
+            background-color: transparent; 
+        }
+
+        .goal {
+            background-color: #0088ff; /* TRAGUARDO BLU */
+            box-shadow: inset 0 0 10px #fff;
+            animation: pulse 1s infinite alternate;
+        }
+
+        /* Il Giocatore */
         #player {
-            background-color: #0f0; 
+            background-color: #00ff00; 
             position: absolute;
-            transition: all 0.1s; 
+            transition: top 0.1s, left 0.1s; 
             border-radius: 50%; 
             z-index: 10;
+            box-shadow: 0 0 10px #00ff00;
         }
+
+        /* UI */
+        #level-indicator { font-size: 20px; color: #0088ff; margin-bottom: 10px; }
+        
+        button { 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            margin-bottom: 10px;
+        }
+
+        @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <h1>🕹️ TEST SENSIBILITÀ</h1>
+    <h1>☠️ Labirinto Hardcore: 5 Livelli</h1>
+    <div id="level-indicator">Livello 1 di 5</div>
     
-    <div id="arrows-container">
-        <div id="arrow-UP" class="arrow-box">⬆️</div>
-        <div id="arrow-DOWN" class="arrow-box">⬇️</div>
-        <div id="arrow-LEFT" class="arrow-box">⬅️</div>
-        <div id="arrow-RIGHT" class="arrow-box">➡️</div>
-    </div>
-
-    <div id="dashboard">
-        <div>VALORI GREZZI: <span id="raw-values" style="color:yellow">Muovi levetta...</span></div>
-        <div>AZIONI: <span id="game-log">Attesa...</span></div>
-    </div>
+    <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
+    <div id="status" style="font-size: 14px; color: #888;">⚠️ ATTENZIONE: Se tocchi i muri ricominci!</div>
     
     <div id="game-area">
         <div id="player"></div>
     </div>
 
     <script>
+        // --- CONFIGURAZIONE ---
         const cellSize = 30; 
-        const MOVE_DELAY = 150; 
-        // SOGLIA BASSISSIMA: Basta 0.15 per attivare (prima era 0.5)
-        const DEADZONE = 0.15; 
-
-        // Mappa Semplice (Tutto libero al centro)
-        const map = [
-                [1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,0,1], // Start a 1,3 per avere spazio
-                [1,1,1,1,1,0,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,2,1],
-                [1,1,1,1,1,1,1,1,1,1]
+        
+        // LEGENDA: 0=Strada, 1=Muro, 2=TRAGUARDO
+        // Mappe 20 colonne x 12 righe
+        const levels = [
+            // LIVELLO 1: Riscaldamento
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],
+                [1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],
+                [1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
+                [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], 
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // LIVELLO 2: I Corridoi
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
+                [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
+                [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
+                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], 
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // LIVELLO 3: Zig Zag
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], 
+                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
+                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // LIVELLO 4: Il Serpente
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
+                [1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1],
+                [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            // LIVELLO 5: L'Incubo Finale
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+                [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1],
+                [1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,2,1],
+                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+                [1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1],
+                [1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,1],
+                [1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,0,1],
+                [1,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0,1],
+                [1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ]
         ];
 
-        let gridX = 1; 
-        let gridY = 3; // Partiamo più in basso così non hai muri sopra
+        let currentLevelIndex = 0;
+        let map = [];
+        let gridX = 1; // Start X
+        let gridY = 1; // Start Y
         let lastMoveTime = 0;
 
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
-        const rawValuesTxt = document.getElementById('raw-values');
-        const gameLogTxt = document.getElementById('game-log');
+        const levelText = document.getElementById('level-indicator');
 
-        function initMap() {
+        // --- CARICA LIVELLO ---
+        function loadLevel(index) {
+            if (index >= levels.length) {
+                alert("🏆 CAMPIONE! Hai finito tutti i 5 livelli!");
+                currentLevelIndex = 0;
+                loadLevel(0);
+                return;
+            }
+
+            // Pulisci vecchia mappa
+            gameArea.innerHTML = '';
+            map = levels[index];
+            currentLevelIndex = index;
+            levelText.innerText = "Livello " + (index + 1) + " di " + levels.length;
+
+            // Reset Posizione Giocatore
+            gridX = 1;
+            gridY = 1;
+
+            // Dimensioni dinamiche
             const rows = map.length;
             const cols = map[0].length;
             gameArea.style.width = (cols * cellSize) + "px";
@@ -125,31 +203,26 @@
             gameArea.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
             gameArea.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
 
+            // Disegna
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const cell = document.createElement('div');
                     cell.classList.add('cell');
                     if (map[r][c] === 1) cell.classList.add('wall');
-                    else if (map[r][c] === 0) cell.classList.add('path');
-                    else if (map[r][c] === 2) cell.classList.add('goal');
+                    if (map[r][c] === 0) cell.classList.add('path');
+                    if (map[r][c] === 2) cell.classList.add('goal');
                     gameArea.appendChild(cell);
                 }
             }
+
             gameArea.appendChild(player);
             updatePlayerPosition();
         }
-        initMap();
 
+        loadLevel(0);
+
+        // --- MOVIMENTO E COLLISIONI (LOGICA "DEATH") ---
         function muoviGiocatore(direzione) {
-            // Illuminiamo la freccia corrispondente
-            resetArrows();
-            if(direzione === "SU") document.getElementById('arrow-UP').classList.add('arrow-active');
-            if(direzione === "GIU") document.getElementById('arrow-DOWN').classList.add('arrow-active');
-            if(direzione === "SINISTRA") document.getElementById('arrow-LEFT').classList.add('arrow-active');
-            if(direzione === "DESTRA") document.getElementById('arrow-RIGHT').classList.add('arrow-active');
-
-            if (Date.now() - lastMoveTime < MOVE_DELAY) return;
-
             let nextX = gridX;
             let nextY = gridY;
 
@@ -158,33 +231,42 @@
             if (direzione === "SINISTRA") nextX--;
             if (direzione === "DESTRA") nextX++;
 
-            // Controllo Mappa
+            // Controlli limiti
             if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
                 const targetCell = map[nextY][nextX];
+
                 if (targetCell === 0) {
-                    gridX = nextX; gridY = nextY;
+                    // Strada libera
+                    gridX = nextX;
+                    gridY = nextY;
                     updatePlayerPosition();
-                    gameLogTxt.innerText = `✅ Muovo a ${direzione}`;
-                    gameLogTxt.style.color = "#0f0";
+                    lastMoveTime = Date.now();
                 } else if (targetCell === 1) {
-                    gameLogTxt.innerText = `🧱 Muro a ${direzione}`;
-                    gameLogTxt.style.color = "red";
-                    flashRed();
+                    // --- MURO! MORTE! ---
+                    deathEffect();
+                    gridX = 1;
+                    gridY = 1;
+                    updatePlayerPosition();
+                    console.log("Muro preso! Ricominci.");
                 } else if (targetCell === 2) {
-                     gameLogTxt.innerText = `🏆 VINTO!`;
-                     gridX = 1; gridY = 3; updatePlayerPosition();
+                    // --- VITTORIA ---
+                    gridX = nextX;
+                    gridY = nextY;
+                    updatePlayerPosition();
+                    setTimeout(() => {
+                        alert("🎉 LIVELLO SUPERATO!");
+                        loadLevel(currentLevelIndex + 1);
+                    }, 100);
                 }
             }
-            lastMoveTime = Date.now();
         }
 
-        function resetArrows() {
-            document.querySelectorAll('.arrow-box').forEach(el => el.classList.remove('arrow-active'));
-        }
-
-        function flashRed() {
+        function deathEffect() {
+            // Flash rosso sul bordo
             gameArea.style.borderColor = "red";
-            setTimeout(() => { gameArea.style.borderColor = "white"; }, 200);
+            setTimeout(() => {
+                gameArea.style.borderColor = "white";
+            }, 300);
         }
 
         function updatePlayerPosition() {
@@ -192,39 +274,58 @@
             player.style.left = (gridX * cellSize) + 'px';
         }
 
+        // --- INPUT JOYSTICK BLUETOOTH ---
         function gameLoop() {
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0]; 
-            
-            if (gp) {
-                // Leggiamo 4 assi per sicurezza (alcuni joystick usano 2 e 3)
-                const ax0 = gp.axes[0] || 0;
-                const ax1 = gp.axes[1] || 0;
-                const ax2 = gp.axes[2] || 0; // Stick destro X
-                const ax3 = gp.axes[3] || 0; // Stick destro Y
-                
-                rawValuesTxt.innerText = `X:${ax0.toFixed(2)} Y:${ax1.toFixed(2)} | DX:${ax2.toFixed(2)} DY:${ax3.toFixed(2)}`;
 
-                // PROVIAMO TUTTI GLI ASSI
-                // Stick Sinistro
-                if (ax1 < -DEADZONE) muoviGiocatore("SU");
-                else if (ax1 > DEADZONE) muoviGiocatore("GIU");
-                else if (ax0 < -DEADZONE) muoviGiocatore("SINISTRA");
-                else if (ax0 > DEADZONE) muoviGiocatore("DESTRA");
-                
-                // Stick Destro (nel caso stessi usando quello per sbaglio)
-                else if (ax3 < -DEADZONE) muoviGiocatore("SU");
-                else if (ax3 > DEADZONE) muoviGiocatore("GIU");
-                else if (ax2 < -DEADZONE) muoviGiocatore("SINISTRA");
-                else if (ax2 > DEADZONE) muoviGiocatore("DESTRA");
-                
-                else {
-                    resetArrows(); // Spegni frecce se non tocchi
-                }
+            if (gp && Date.now() - lastMoveTime > 150) { 
+                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
+                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
+                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
+                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
             }
             requestAnimationFrame(gameLoop);
         }
         gameLoop(); 
+
+        window.addEventListener("gamepadconnected", () => {
+            document.getElementById('status').innerText = "🎮 Controller Connesso! (Attento ai muri)";
+        });
+
+        // --- INPUT ARDUINO USB ---
+        let port, reader;
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if ("serial" in navigator) {
+                try {
+                    port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 9600 });
+                    const textDecoder = new TextDecoderStream();
+                    port.readable.pipeTo(textDecoder.writable);
+                    reader = textDecoder.readable.getReader();
+                    document.getElementById('status').innerText = "✅ Arduino USB Connesso!";
+                    readSerialLoop();
+                } catch (err) {
+                    alert("Errore USB: " + err);
+                }
+            }
+        });
+
+        async function readSerialLoop() {
+            let buffer = ""; 
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) {
+                    buffer += value;
+                    if (buffer.includes('\n')) {
+                        const comandi = buffer.split('\n');
+                        buffer = comandi.pop(); 
+                        for (let cmd of comandi) muoviGiocatore(cmd.trim());
+                    }
+                }
+            }
+        }
     </script>
 </body>
 </html>
