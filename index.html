@@ -1,90 +1,131 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto Pro Abruzzo</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <title>Labirinto Arduino Debug</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background-color: #222; color: white; padding-top: 50px; touch-action: none; }
+        body { 
+            font-family: sans-serif; 
+            text-align: center; 
+            background-color: #222; /* Sfondo scuro */
+            color: white; 
+            padding-top: 50px;
+        }
         #game-area {
-            width: 300px;
-            height: 300px;
+            width: 400px;
+            height: 400px;
             border: 5px solid white;
             margin: 20px auto;
             position: relative;
             background-color: #000;
         }
         #player {
-            width: 30px;
-            height: 30px;
-            background-color: #00ff00; 
+            width: 40px;
+            height: 40px;
+            background-color: red;
             position: absolute;
-            top: 135px; left: 135px;
-            border-radius: 50%;
-            /* NESSUNA TRANSIZIONE CSS: Il movimento lo fa Javascript fluido */
+            top: 180px; 
+            left: 180px; 
+            transition: all 0.1s; 
         }
-        #status { color: yellow; font-weight: bold; margin-bottom: 20px;}
+        button { 
+            padding: 15px 30px; 
+            font-size: 20px; 
+            cursor: pointer; 
+            background-color: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+        }
+        #status {
+            margin-top: 15px;
+            color: yellow;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🚀 Labirinto Real-Time</h1>
-    <div id="status">Connessione...</div>
-    <div id="game-area"><div id="player"></div></div>
+    <h1>🕹️ Labirinto Arduino - Test</h1>
+    
+    <button id="connectBtn">🔌 CONNETTI ARDUINO</button>
+    <div id="status">Stato: Non connesso</div>
+    
+    <div id="game-area">
+        <div id="player"></div>
+    </div>
+
+    <p>Premi <b>F12</b> e vai su <b>Console</b> per vedere i dati.</p>
 
     <script>
-        // --- CONFIGURAZIONE ---
-        const topic = "labirinto_abruzzo_test/comandi"; 
-        const broker = "test.mosquitto.org";
-        const port = 8081; 
-        // ----------------------
+        let port;
+        let reader;
+        
+        // Posizione iniziale
+        let posX = 180;
+        let posY = 180;
+        const step = 40; 
 
-        const client = new Paho.MQTT.Client(broker, port, "web_" + Date.now());
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if ("serial" in navigator) {
+                try {
+                    port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 9600 });
+                    
+                    const textDecoder = new TextDecoderStream();
+                    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                    reader = textDecoder.readable.getReader();
+                    
+                    document.getElementById('status').innerText = "✅ Connesso! Muovi il Joystick.";
+                    console.log("Sistema pronto. In attesa di dati...");
+                    readLoop();
+                } catch (err) {
+                    console.error("Errore:", err);
+                    document.getElementById('status').innerText = "❌ Errore: " + err;
+                }
+            } else {
+                alert("Il browser non supporta la seriale. Usa Chrome o Edge.");
+            }
+        });
 
-        let posX = 135;
-        let posY = 135;
-        let direzioneAttuale = "STOP"; // Memorizza dove stiamo andando
-        const velocita = 4; // Pixel per fotogramma (Aumenta per andare più veloce)
+        async function readLoop() {
+            let buffer = ""; 
 
-        // --- IL MOTORE DI GIOCO (Loop Infinito) ---
-        // Questo gira 60 volte al secondo fluidissimo
-        function gameLoop() {
-            if (direzioneAttuale === "SU" && posY > 0) posY -= velocita;
-            if (direzioneAttuale === "GIU" && posY < 270) posY += velocita;
-            if (direzioneAttuale === "SINISTRA" && posX > 0) posX -= velocita;
-            if (direzioneAttuale === "DESTRA" && posX < 270) posX += velocita;
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) {
+                    buffer += value;
+                    
+                    // Se c'è un "a capo", elaboriamo il comando
+                    if (buffer.includes('\n')) {
+                        const comandi = buffer.split('\n');
+                        buffer = comandi.pop(); // Salva il pezzo incompleto per dopo
 
-            // Applica la posizione
-            const player = document.getElementById('player');
-            player.style.top = posY + 'px';
-            player.style.left = posX + 'px';
-
-            requestAnimationFrame(gameLoop); // Ripeti al prossimo frame
+                        for (let comando of comandi) {
+                            comando = comando.trim(); // Pulisce spazi vuoti e invii
+                            console.log("Comando ricevuto:", comando); // DEBUG NELLA CONSOLE
+                            muoviGiocatore(comando);
+                        }
+                    }
+                }
+            }
         }
 
-        client.onMessageArrived = function (message) {
-            const comando = message.payloadString;
-            console.log("Comando: " + comando);
-            
-            // Aggiorniamo solo la direzione, il loop sopra fa il movimento
-            direzioneAttuale = comando;
-            
-            // Feedback visivo nel testo
-            document.getElementById('status').innerText = "Stato: " + comando;
-        };
+        function muoviGiocatore(direzione) {
+            let moved = false;
+            // Controlla esattamente le parole inviate da Arduino
+            if (direzione === "SU" && posY > 0) { posY -= step; moved = true; }
+            if (direzione === "GIU" && posY < 360) { posY += step; moved = true; }
+            if (direzione === "SINISTRA" && posX > 0) { posX -= step; moved = true; }
+            if (direzione === "DESTRA" && posX < 360) { posX += step; moved = true; }
 
-        const options = {
-            useSSL: true,
-            onSuccess: function () {
-                document.getElementById('status').innerText = "✅ Pronto! Muovi il Joystick.";
-                client.subscribe(topic);
-                gameLoop(); // AVVIA IL MOTORE GRAFICO
-            },
-            onFailure: function (e) {
-                document.getElementById('status').innerText = "❌ Errore: " + e.errorMessage;
+            if (moved) {
+                const player = document.getElementById('player');
+                player.style.top = posY + 'px';
+                player.style.left = posX + 'px';
+                console.log("Giocatore spostato a:", posX, posY);
             }
-        };
-
-        client.connect(options);
+        }
     </script>
 </body>
 </html>
