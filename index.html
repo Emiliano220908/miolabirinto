@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto 5 Livelli Fixato</title>
+    <title>Labirinto Calibrato</title>
     <style>
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-family: 'Segoe UI', sans-serif; 
             text-align: center; 
             background-color: #1a1a1a; 
             color: white; 
@@ -12,8 +12,7 @@
             overflow: hidden; 
         }
         
-        h1 { margin-bottom: 5px; font-size: 24px; }
-
+        /* Area di Gioco */
         #game-area {
             margin: 10px auto;
             position: relative;
@@ -24,6 +23,7 @@
             transition: border-color 0.2s; 
         }
 
+        /* Caselle */
         .cell { box-sizing: border-box; }
         .wall { background-color: #555; border: 1px solid #333; }
         .path { background-color: transparent; }
@@ -33,6 +33,7 @@
             animation: pulse 1s infinite alternate;
         }
 
+        /* Giocatore */
         #player {
             background-color: #00ff00; 
             position: absolute;
@@ -42,29 +43,38 @@
             box-shadow: 0 0 10px #00ff00;
         }
 
-        #level-indicator { font-size: 20px; color: #0088ff; margin-bottom: 10px; }
-        
-        button { 
-            padding: 10px 20px; 
-            font-size: 16px; 
-            cursor: pointer; 
-            background-color: #4CAF50; 
-            color: white; 
-            border: none; 
-            border-radius: 5px; 
-            margin-bottom: 10px;
+        /* Pannello di Controllo */
+        #controls-panel {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 15px;
+            border: 1px solid #555;
         }
+
+        label { margin: 0 10px; font-size: 18px; cursor: pointer; }
+        input[type="checkbox"] { transform: scale(1.5); margin-right: 5px; }
+
+        #debug-text { color: yellow; font-family: monospace; margin-top: 5px; height: 20px;}
+        button { padding: 8px 15px; font-size: 16px; cursor: pointer; background: #4CAF50; border: none; color: white; border-radius: 4px; }
 
         @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <h1>☠️ Labirinto Fixato</h1>
-    <div id="level-indicator">Livello 1 di 5</div>
-    
-    <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
-    <div id="status" style="font-size: 14px; color: #888;">⚠️ Muoviti con calma!</div>
+    <div id="controls-panel">
+        <h3>🔧 Calibrazione Joystick</h3>
+        <label><input type="checkbox" id="invY"> Inverti Su/Giù</label>
+        <label><input type="checkbox" id="invX"> Inverti Destra/Sinistra</label>
+        <div id="debug-text">In attesa di input...</div>
+    </div>
+
+    <div>
+        <span id="level-indicator" style="font-size: 20px; color: #0088ff;">Livello 1</span>
+        <button id="connectBtn" style="margin-left: 20px;">🔌 USB Arduino</button>
+    </div>
     
     <div id="game-area">
         <div id="player"></div>
@@ -73,11 +83,11 @@
     <script>
         // --- CONFIGURAZIONE ---
         const cellSize = 30; 
-        const MOVE_DELAY = 150; // MILLISECONDI DI ATTESA TRA UN PASSO E L'ALTRO
+        const MOVE_DELAY = 150; // Ritardo anti-mitragliatrice
         
+        // Mappa Livelli
         const levels = [
-            // LIVELLO 1
-            [
+            [ // Livello 1
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
                 [1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
@@ -91,8 +101,7 @@
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], 
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 2
-            [
+            [ // Livello 2
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
                 [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
@@ -106,8 +115,7 @@
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 3
-            [
+            [ // Livello 3
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
                 [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
@@ -120,36 +128,6 @@
                 [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 4
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
-                [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
-                [1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 5
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
-                [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1],
-                [1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,2,1],
-                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1],
-                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-                [1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1],
-                [1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,1],
-                [1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,0,1],
-                [1,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0,1],
-                [1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ]
         ];
 
@@ -157,28 +135,25 @@
         let map = [];
         let gridX = 1; 
         let gridY = 1; 
-        let lastMoveTime = 0; // VARIABILE FONDAMENTALE PER IL RITARDO
+        let lastMoveTime = 0;
 
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
-        const levelText = document.getElementById('level-indicator');
+        const debugText = document.getElementById('debug-text');
 
         // --- CARICA LIVELLO ---
         function loadLevel(index) {
             if (index >= levels.length) {
-                alert("🏆 CAMPIONE! Hai finito tutti i 5 livelli!");
-                currentLevelIndex = 0;
+                alert("🏆 GIOCO FINITO!");
                 loadLevel(0);
                 return;
             }
-
             gameArea.innerHTML = '';
             map = levels[index];
             currentLevelIndex = index;
-            levelText.innerText = "Livello " + (index + 1) + " di " + levels.length;
+            document.getElementById('level-indicator').innerText = "Livello " + (index + 1);
 
-            gridX = 1;
-            gridY = 1;
+            gridX = 1; gridY = 1;
 
             const rows = map.length;
             const cols = map[0].length;
@@ -197,22 +172,15 @@
                     gameArea.appendChild(cell);
                 }
             }
-
             gameArea.appendChild(player);
             updatePlayerPosition();
         }
-
         loadLevel(0);
 
-        // --- MOVIMENTO E COLLISIONI (LOGICA "DEATH") ---
+        // --- MOVIMENTO ---
         function muoviGiocatore(direzione) {
-            
-            // --- IL FIX FONDAMENTALE ---
-            // Se non sono passati almeno 150ms dall'ultimo passo, IGNORA il comando.
-            if (Date.now() - lastMoveTime < MOVE_DELAY) {
-                return; 
-            }
-            // --------------------------
+            // Freno temporale
+            if (Date.now() - lastMoveTime < MOVE_DELAY) return;
 
             let nextX = gridX;
             let nextY = gridY;
@@ -222,39 +190,31 @@
             if (direzione === "SINISTRA") nextX--;
             if (direzione === "DESTRA") nextX++;
 
-            // Controlli limiti
+            // Controllo Limiti e Muri
             if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
                 const targetCell = map[nextY][nextX];
 
                 if (targetCell === 0) {
-                    gridX = nextX;
-                    gridY = nextY;
+                    gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
-                    lastMoveTime = Date.now(); // RESETTA IL TIMER
+                    debugText.innerText = "Spostato a: " + direzione;
                 } else if (targetCell === 1) {
                     deathEffect();
-                    gridX = 1;
-                    gridY = 1;
+                    gridX = 1; gridY = 1; // Respawn
                     updatePlayerPosition();
-                    console.log("SBAM! Muro.");
-                    lastMoveTime = Date.now(); // RESETTA ANCHE SE MUORI
+                    debugText.innerText = "❌ SBATTUTO CONTRO MURO (" + direzione + ")";
                 } else if (targetCell === 2) {
-                    gridX = nextX;
-                    gridY = nextY;
+                    gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
-                    setTimeout(() => {
-                        alert("🎉 LIVELLO SUPERATO!");
-                        loadLevel(currentLevelIndex + 1);
-                    }, 100);
+                    setTimeout(() => { alert("LIVELLO SUPERATO!"); loadLevel(currentLevelIndex + 1); }, 100);
                 }
+                lastMoveTime = Date.now();
             }
         }
 
         function deathEffect() {
             gameArea.style.borderColor = "red";
-            setTimeout(() => {
-                gameArea.style.borderColor = "white";
-            }, 300);
+            setTimeout(() => { gameArea.style.borderColor = "white"; }, 300);
         }
 
         function updatePlayerPosition() {
@@ -262,26 +222,34 @@
             player.style.left = (gridX * cellSize) + 'px';
         }
 
-        // --- INPUT JOYSTICK BLUETOOTH ---
+        // --- JOYSTICK LOOP ---
         function gameLoop() {
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0]; 
+            
+            if (gp) {
+                // Leggiamo i checkbox per vedere se dobbiamo invertire
+                const invertiY = document.getElementById('invY').checked;
+                const invertiX = document.getElementById('invX').checked;
 
-            if (gp) { 
-                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
-                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
-                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
-                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
+                // Asse Y (Su/Giù)
+                let valY = gp.axes[1];
+                if (invertiY) valY = -valY; // Inverte il valore
+
+                // Asse X (Destra/Sinistra)
+                let valX = gp.axes[0];
+                if (invertiX) valX = -valX; // Inverte il valore
+
+                if (valY < -0.5) muoviGiocatore("SU");
+                else if (valY > 0.5) muoviGiocatore("GIU");
+                else if (valX < -0.5) muoviGiocatore("SINISTRA");
+                else if (valX > 0.5) muoviGiocatore("DESTRA");
             }
             requestAnimationFrame(gameLoop);
         }
         gameLoop(); 
 
-        window.addEventListener("gamepadconnected", () => {
-            document.getElementById('status').innerText = "🎮 Controller Connesso! (Attento ai muri)";
-        });
-
-        // --- INPUT ARDUINO USB ---
+        // --- ARDUINO USB ---
         let port, reader;
         document.getElementById('connectBtn').addEventListener('click', async () => {
             if ("serial" in navigator) {
@@ -291,11 +259,10 @@
                     const textDecoder = new TextDecoderStream();
                     port.readable.pipeTo(textDecoder.writable);
                     reader = textDecoder.readable.getReader();
-                    document.getElementById('status').innerText = "✅ Arduino USB Connesso!";
                     readSerialLoop();
-                } catch (err) {
-                    alert("Errore USB: " + err);
-                }
+                    document.getElementById('connectBtn').style.background = "#0088ff";
+                    document.getElementById('connectBtn').innerText = "Connesso";
+                } catch (err) { alert("Errore: " + err); }
             }
         });
 
