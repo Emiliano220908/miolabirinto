@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>La Mia Console Arduino v2</title>
+    <title>Console Arduino v3 (Fighter Update)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -12,7 +12,7 @@
             margin: 0;
             padding: 0;
             overflow: hidden; 
-            user-select: none; /* Evita di selezionare il testo giocando */
+            user-select: none; 
         }
 
         /* --- MENU --- */
@@ -99,6 +99,7 @@
             width: 400px; height: 500px;
             background-color: #000;
             border: 4px solid #ff0055;
+            border-bottom: 4px solid red; /* Linea rossa della morte */
             margin: 10px auto;
             position: relative;
             overflow: hidden;
@@ -147,7 +148,7 @@
             <div class="game-card" onclick="openGame('fighter')">
                 <div class="card-icon" style="color:#ff0055">🚀</div>
                 <div class="card-title">Fighter War</div>
-                <div class="card-desc">Sparatutto Arcade</div>
+                <div class="card-desc">Difendi la base!</div>
             </div>
         </div>
         
@@ -175,7 +176,7 @@
         <div id="game-area-fighter">
             <div id="fighter-player"></div>
         </div>
-        <p style="font-size:12px; color:#aaa">Muoviti per schivare • Spara in automatico</p>
+        <p style="font-size:12px; color:#aaa">DIFENDI LA LINEA ROSSA IN BASSO! (Sei invulnerabile al contatto)</p>
     </div>
 
     <script>
@@ -203,20 +204,19 @@
             document.getElementById('main-menu').style.display = 'flex';
             
             giocoAttivo = 'menu';
-            stopFighterGame(); // Ferma il loop di Fighter War
+            stopFighterGame(); 
         }
 
         // =========================================================
         //                 LOGICA INPUT (CENTRALINA)
         // =========================================================
         let lastInputTime = 0;
-        const INPUT_DELAY = 100; // Riduce la mitragliatrice per il labirinto
+        const INPUT_DELAY = 100; 
 
         function gestisciInput(direzione) {
-            // Se siamo nel MENU, ignoriamo l'input (per ora)
             if (giocoAttivo === 'menu') return;
 
-            // Se siamo nel LABIRINTO
+            // LABIRINTO (Con ritardo anti-mitragliatrice)
             if (giocoAttivo === 'maze') {
                 if (Date.now() - lastInputTime > INPUT_DELAY) {
                     muoviLabirinto(direzione);
@@ -224,9 +224,8 @@
                 }
             }
             
-            // Se siamo in FIGHTER WAR
+            // FIGHTER WAR (Fluido, senza ritardo)
             if (giocoAttivo === 'fighter') {
-                // Fighter war è fluido, non ha delay
                 muoviFighter(direzione);
             }
         }
@@ -254,7 +253,7 @@
              [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
              [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],
              [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Livello 2 (Più difficile)
+            // Livello 2 
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
              [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
              [1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
@@ -278,7 +277,7 @@
             
             const area = document.getElementById('game-area-maze');
             const player = document.getElementById('player-maze');
-            area.innerHTML = ''; // Pulisci
+            area.innerHTML = ''; 
             
             const rows = mazeMap.length;
             const cols = mazeMap[0].length;
@@ -314,12 +313,10 @@
                 if(mazeMap[ny][nx] === 0) {
                     mazeX=nx; mazeY=ny; updateMazePlayer();
                 } else if(mazeMap[ny][nx] === 1) {
-                    // Muro -> Reset
                     document.getElementById('game-area-maze').style.borderColor = "red";
                     setTimeout(()=>document.getElementById('game-area-maze').style.borderColor="white", 200);
                     mazeX=1; mazeY=1; updateMazePlayer();
                 } else if(mazeMap[ny][nx] === 2) {
-                    // Vittoria
                     mazeX=nx; mazeY=ny; updateMazePlayer();
                     setTimeout(()=>loadMazeLevel(currentLevel+1), 200);
                 }
@@ -341,14 +338,15 @@
         let fighterLoopId;
         let bullets = [];
         let enemies = [];
-        let fighterSpeed = 5;
+        
+        // --- MODIFICA 1: VELOCITA' AUMENTATA A 12 ---
+        let fighterSpeed = 12; 
 
         function startFighterGame() {
             fighterX = 185; fighterY = 450; fighterScore = 0;
             bullets = []; enemies = [];
             document.getElementById('score-board').innerText = "Punti: 0";
             
-            // Pulisci l'area di gioco (tranne il player)
             const area = document.getElementById('game-area-fighter');
             const player = document.getElementById('fighter-player');
             area.innerHTML = '';
@@ -357,7 +355,7 @@
             updateFighterPos();
             
             if(fighterLoopId) clearInterval(fighterLoopId);
-            fighterLoopId = setInterval(gameLoopFighter, 20); // 50 FPS
+            fighterLoopId = setInterval(gameLoopFighter, 20); 
         }
 
         function stopFighterGame() {
@@ -365,7 +363,6 @@
         }
 
         function muoviFighter(dir) {
-            // Movimento fluido pixel per pixel
             if(dir==="SINISTRA" && fighterX > 0) fighterX -= fighterSpeed;
             if(dir==="DESTRA" && fighterX < 370) fighterX += fighterSpeed;
             if(dir==="SU" && fighterY > 0) fighterY -= fighterSpeed;
@@ -379,73 +376,59 @@
             p.style.top = fighterY + "px";
         }
 
-        // Logica principale Fighter War (Sparo, Nemici, Collisioni)
         let frameCount = 0;
         function gameLoopFighter() {
             frameCount++;
-            const area = document.getElementById('game-area-fighter');
+            
+            // SPARA AUTOMATICAMENTE ogni 20 frame
+            if (frameCount % 20 === 0) createBullet();
+            // CREA NEMICI ogni 50 frame
+            if (frameCount % 50 === 0) createEnemy();
 
-            // 1. SPARA AUTOMATICAMENTE ogni 20 frame (circa 0.4 secondi)
-            if (frameCount % 20 === 0) {
-                createBullet();
-            }
-
-            // 2. CREA NEMICI ogni 50 frame (circa 1 secondo)
-            if (frameCount % 50 === 0) {
-                createEnemy();
-            }
-
-            // 3. MUOVI PROIETTILI
+            // 1. GESTIONE PROIETTILI
             for (let i = 0; i < bullets.length; i++) {
                 let b = bullets[i];
-                b.y -= 5; // Velocità proiettile
+                b.y -= 7; // Proiettili più veloci
                 b.el.style.top = b.y + "px";
-
-                // Rimuovi se fuori schermo
-                if (b.y < -10) {
-                    b.el.remove();
-                    bullets.splice(i, 1);
-                    i--;
-                }
+                if (b.y < -10) { b.el.remove(); bullets.splice(i, 1); i--; }
             }
 
-            // 4. MUOVI NEMICI E COLLISIONI
+            // 2. GESTIONE NEMICI
             for (let i = 0; i < enemies.length; i++) {
                 let e = enemies[i];
-                e.y += 2; // Velocità nemico
+                e.y += 2; 
                 e.el.style.top = e.y + "px";
 
-                // Collisione Proiettile-Nemico
-                for (let j = 0; j < bullets.length; j++) {
-                    let b = bullets[j];
-                    if (isColliding(b, e)) {
-                        // Colpito!
-                        fighterScore += 10;
-                        document.getElementById('score-board').innerText = "Punti: " + fighterScore;
-                        e.el.remove();
-                        b.el.remove();
-                        enemies.splice(i, 1);
-                        bullets.splice(j, 1);
-                        i--; // Regola indice nemici
-                        break; // Esci dal loop proiettili
-                    }
-                }
-
-                // Collisione Nemico-Giocatore (GAME OVER)
-                // Creiamo un oggetto finto per il player
-                let playerObj = { x: fighterX, y: fighterY, w: 30, h: 30 };
-                if (enemies[i] && isColliding(enemies[i], playerObj)) {
+                // --- MODIFICA 2: GAME OVER SOLO SE TOCCA IL FONDO ---
+                // Altezza box 500, Nemico alto 30. Se Y > 470 ha toccato il fondo.
+                if (e.y > 470) {
                     stopFighterGame();
-                    alert("💥 GAME OVER! Punti: " + fighterScore);
-                    goBack(); // Torna al menu
+                    alert("💀 HAI PERSO! I nemici hanno invaso la base.\nPunti: " + fighterScore);
+                    goBack();
                     return;
                 }
 
-                // Rimuovi nemico se tocca il fondo
-                if (e.y > 500) {
-                    e.el.remove();
+                // COLLISIONE PROIETTILE -> NEMICO
+                for (let j = 0; j < bullets.length; j++) {
+                    let b = bullets[j];
+                    if (isColliding(b, e)) {
+                        fighterScore += 10;
+                        document.getElementById('score-board').innerText = "Punti: " + fighterScore;
+                        e.el.remove(); b.el.remove();
+                        enemies.splice(i, 1); bullets.splice(j, 1);
+                        i--; break; 
+                    }
+                }
+                
+                // --- MODIFICA 3: COLLISIONE GIOCATORE -> NEMICO (INVULNERABILE) ---
+                // Se tocchi un nemico, lo distruggi col corpo (corazzato) ma NON muori.
+                let playerObj = { x: fighterX, y: fighterY, w: 30, h: 30 };
+                if (enemies[i] && isColliding(enemies[i], playerObj)) {
+                    // Distruggi il nemico "speronato"
+                    enemies[i].el.remove();
                     enemies.splice(i, 1);
                     i--;
+                    // Niente Game Over!
                 }
             }
         }
@@ -454,11 +437,8 @@
             const area = document.getElementById('game-area-fighter');
             const b = document.createElement('div');
             b.className = 'bullet';
-            // Il proiettile parte dal centro della navicella
-            let bx = fighterX + 13; 
-            let by = fighterY;
-            b.style.left = bx + "px";
-            b.style.top = by + "px";
+            let bx = fighterX + 13; let by = fighterY;
+            b.style.left = bx + "px"; b.style.top = by + "px";
             area.appendChild(b);
             bullets.push({ el: b, x: bx, y: by, w: 4, h: 15 });
         }
@@ -467,37 +447,26 @@
             const area = document.getElementById('game-area-fighter');
             const e = document.createElement('div');
             e.className = 'enemy';
-            let ex = Math.random() * 370; // Posizione X casuale
-            let ey = -30;
-            e.style.left = ex + "px";
-            e.style.top = ey + "px";
+            let ex = Math.random() * 370; let ey = -30;
+            e.style.left = ex + "px"; e.style.top = ey + "px";
             area.appendChild(e);
             enemies.push({ el: e, x: ex, y: ey, w: 30, h: 30 });
         }
 
-        // Funzione collisione semplice (Rettangoli)
         function isColliding(a, b) {
-            return !(
-                ((a.y + a.h) < (b.y)) ||
-                (a.y > (b.y + b.h)) ||
-                ((a.x + a.w) < b.x) ||
-                (a.x > (b.x + b.w))
-            );
+            return !(((a.y + a.h) < (b.y)) || (a.y > (b.y + b.h)) || ((a.x + a.w) < b.x) || (a.x > (b.x + b.w)));
         }
 
         // =========================================================
         //                 GESTIONE ARDUINO E JOYSTICK
         // =========================================================
         
-        // 1. JOYSTICK BLUETOOTH
         function joyLoop() {
             const gp = navigator.getGamepads()[0];
             if (gp) {
-                // Leggi assi (soglia 0.2)
                 const deadzone = 0.2;
                 if (gp.axes[1] < -deadzone) gestisciInput("SU");
                 else if (gp.axes[1] > deadzone) gestisciInput("GIU");
-                
                 if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
                 else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
             }
@@ -508,7 +477,6 @@
             connectionStatus.innerText = "✅ Controller Bluetooth Connesso";
         });
 
-        // 2. ARDUINO USB
         let port, reader;
         document.getElementById('connectBtn').addEventListener('click', async () => {
             if ("serial" in navigator) {
@@ -521,9 +489,7 @@
                     connectionStatus.innerText = "✅ Arduino USB Connesso";
                     connectionStatus.style.color = "#4CAF50";
                     readSerialLoop();
-                } catch (err) {
-                    alert("Errore USB: " + err);
-                }
+                } catch (err) { alert("Errore USB: " + err); }
             }
         });
 
