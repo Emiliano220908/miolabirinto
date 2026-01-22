@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v3 (Fighter Update)</title>
+    <title>Console Arduino v4 (Final Fighter)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -99,7 +99,7 @@
             width: 400px; height: 500px;
             background-color: #000;
             border: 4px solid #ff0055;
-            border-bottom: 4px solid red; /* Linea rossa della morte */
+            border-bottom: 4px solid red; 
             margin: 10px auto;
             position: relative;
             overflow: hidden;
@@ -108,10 +108,14 @@
 
         #fighter-player {
             width: 30px; height: 30px;
-            background-color: #00ffcc; /* Ciano */
-            position: absolute; bottom: 20px; left: 185px;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%); /* Triangolo */
+            background-color: #00ffcc; 
+            position: absolute; 
+            bottom: 20px; /* BLOCCATO SUL FONDO */
+            left: 0;      /* La X la gestiamo con translate per fluidità */
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
             box-shadow: 0 0 10px #00ffcc;
+            transform: translateX(185px); /* Posizione Iniziale */
+            will-change: transform; /* Ottimizzazione GPU */
         }
 
         .bullet {
@@ -119,6 +123,7 @@
             background-color: #ffff00;
             position: absolute;
             box-shadow: 0 0 5px #ffff00;
+            will-change: top;
         }
 
         .enemy {
@@ -126,6 +131,7 @@
             background-color: #ff0055;
             position: absolute;
             border-radius: 3px;
+            will-change: top;
         }
 
         #score-board { font-size: 24px; color: #ff0055; font-family: monospace; font-weight: bold; }
@@ -148,7 +154,7 @@
             <div class="game-card" onclick="openGame('fighter')">
                 <div class="card-icon" style="color:#ff0055">🚀</div>
                 <div class="card-title">Fighter War</div>
-                <div class="card-desc">Difendi la base!</div>
+                <div class="card-desc">Solo Orizzontale</div>
             </div>
         </div>
         
@@ -176,12 +182,12 @@
         <div id="game-area-fighter">
             <div id="fighter-player"></div>
         </div>
-        <p style="font-size:12px; color:#aaa">DIFENDI LA LINEA ROSSA IN BASSO! (Sei invulnerabile al contatto)</p>
+        <p style="font-size:12px; color:#aaa">MUOVITI SOLO A DESTRA E SINISTRA • PROTEGGI LA LINEA ROSSA!</p>
     </div>
 
     <script>
         // --- GESTIONE STATO GLOBALE ---
-        let giocoAttivo = 'menu'; // 'menu', 'maze', 'fighter'
+        let giocoAttivo = 'menu'; 
         let connectionStatus = document.getElementById('status');
 
         function openGame(gameName) {
@@ -190,19 +196,17 @@
 
             if (gameName === 'maze') {
                 document.getElementById('maze-wrapper').style.display = 'block';
-                loadMazeLevel(0); // Ricarica il labirinto
+                loadMazeLevel(0); 
             } else if (gameName === 'fighter') {
                 document.getElementById('fighter-wrapper').style.display = 'block';
-                startFighterGame(); // Avvia lo sparatutto
+                startFighterGame(); 
             }
         }
 
         function goBack() {
-            // Ferma tutto
             document.getElementById('maze-wrapper').style.display = 'none';
             document.getElementById('fighter-wrapper').style.display = 'none';
             document.getElementById('main-menu').style.display = 'flex';
-            
             giocoAttivo = 'menu';
             stopFighterGame(); 
         }
@@ -211,36 +215,34 @@
         //                 LOGICA INPUT (CENTRALINA)
         // =========================================================
         let lastInputTime = 0;
-        const INPUT_DELAY = 100; 
+        const MAZE_DELAY = 100; // Solo per il labirinto
 
         function gestisciInput(direzione) {
             if (giocoAttivo === 'menu') return;
 
-            // LABIRINTO (Con ritardo anti-mitragliatrice)
+            // LABIRINTO (Con ritardo)
             if (giocoAttivo === 'maze') {
-                if (Date.now() - lastInputTime > INPUT_DELAY) {
+                if (Date.now() - lastInputTime > MAZE_DELAY) {
                     muoviLabirinto(direzione);
                     lastInputTime = Date.now();
                 }
             }
             
-            // FIGHTER WAR (Fluido, senza ritardo)
+            // FIGHTER WAR (Senza ritardo, fluido)
             if (giocoAttivo === 'fighter') {
                 muoviFighter(direzione);
             }
         }
 
         // =========================================================
-        //                 GIOCO 1: LABIRINTO
+        //                 GIOCO 1: LABIRINTO (Codice Originale)
         // =========================================================
         const mazeCellSize = 30;
         let mazeMap = [];
-        let mazeX = 1; 
-        let mazeY = 1;
+        let mazeX = 1; let mazeY = 1;
         let currentLevel = 0;
 
         const mazeLevels = [
-            // Livello 1
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
              [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
              [1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
@@ -253,7 +255,7 @@
              [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
              [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],
              [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // Livello 2 
+            
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
              [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
              [1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
@@ -330,20 +332,19 @@
         }
 
         // =========================================================
-        //                 GIOCO 2: FIGHTER WAR
+        //                 GIOCO 2: FIGHTER WAR (Aggiornato)
         // =========================================================
         let fighterX = 185;
-        let fighterY = 450;
         let fighterScore = 0;
         let fighterLoopId;
         let bullets = [];
         let enemies = [];
         
-        // --- MODIFICA 1: VELOCITA' AUMENTATA A 12 ---
-        let fighterSpeed = 12; 
+        // VELOCITÀ ALTA PER FLUIDITÀ
+        let fighterSpeed = 10; 
 
         function startFighterGame() {
-            fighterX = 185; fighterY = 450; fighterScore = 0;
+            fighterX = 185; fighterScore = 0;
             bullets = []; enemies = [];
             document.getElementById('score-board').innerText = "Punti: 0";
             
@@ -363,47 +364,46 @@
         }
 
         function muoviFighter(dir) {
+            // SOLO DESTRA E SINISTRA
             if(dir==="SINISTRA" && fighterX > 0) fighterX -= fighterSpeed;
             if(dir==="DESTRA" && fighterX < 370) fighterX += fighterSpeed;
-            if(dir==="SU" && fighterY > 0) fighterY -= fighterSpeed;
-            if(dir==="GIU" && fighterY < 470) fighterY += fighterSpeed;
+            // IGNORIAMO COMPLETAMENTE SU E GIU
+            
             updateFighterPos();
         }
 
         function updateFighterPos() {
             const p = document.getElementById('fighter-player');
-            p.style.left = fighterX + "px";
-            p.style.top = fighterY + "px";
+            // Usiamo transform per la massima fluidità
+            p.style.transform = `translateX(${fighterX}px)`;
         }
 
         let frameCount = 0;
         function gameLoopFighter() {
             frameCount++;
             
-            // SPARA AUTOMATICAMENTE ogni 20 frame
             if (frameCount % 20 === 0) createBullet();
-            // CREA NEMICI ogni 50 frame
             if (frameCount % 50 === 0) createEnemy();
 
-            // 1. GESTIONE PROIETTILI
+            // 1. PROIETTILI
             for (let i = 0; i < bullets.length; i++) {
                 let b = bullets[i];
-                b.y -= 7; // Proiettili più veloci
+                b.y -= 7; 
                 b.el.style.top = b.y + "px";
                 if (b.y < -10) { b.el.remove(); bullets.splice(i, 1); i--; }
             }
 
-            // 2. GESTIONE NEMICI
+            // 2. NEMICI
             for (let i = 0; i < enemies.length; i++) {
                 let e = enemies[i];
                 e.y += 2; 
                 e.el.style.top = e.y + "px";
 
-                // --- MODIFICA 2: GAME OVER SOLO SE TOCCA IL FONDO ---
-                // Altezza box 500, Nemico alto 30. Se Y > 470 ha toccato il fondo.
+                // --- GAME OVER: NEMICO TOCCA IL FONDO ---
+                // Altezza box 500, Nemico alto 30.
                 if (e.y > 470) {
                     stopFighterGame();
-                    alert("💀 HAI PERSO! I nemici hanno invaso la base.\nPunti: " + fighterScore);
+                    alert("💀 BASE INVAS! Punti: " + fighterScore);
                     goBack();
                     return;
                 }
@@ -420,15 +420,13 @@
                     }
                 }
                 
-                // --- MODIFICA 3: COLLISIONE GIOCATORE -> NEMICO (INVULNERABILE) ---
-                // Se tocchi un nemico, lo distruggi col corpo (corazzato) ma NON muori.
-                let playerObj = { x: fighterX, y: fighterY, w: 30, h: 30 };
+                // COLLISIONE GIOCATORE -> NEMICO (DISTRUZIONE NEMICO)
+                // Y fissa a 450 (bottom 20px in box 500px)
+                let playerObj = { x: fighterX, y: 450, w: 30, h: 30 };
                 if (enemies[i] && isColliding(enemies[i], playerObj)) {
-                    // Distruggi il nemico "speronato"
                     enemies[i].el.remove();
                     enemies.splice(i, 1);
                     i--;
-                    // Niente Game Over!
                 }
             }
         }
@@ -437,7 +435,7 @@
             const area = document.getElementById('game-area-fighter');
             const b = document.createElement('div');
             b.className = 'bullet';
-            let bx = fighterX + 13; let by = fighterY;
+            let bx = fighterX + 13; let by = 450;
             b.style.left = bx + "px"; b.style.top = by + "px";
             area.appendChild(b);
             bullets.push({ el: b, x: bx, y: by, w: 4, h: 15 });
@@ -465,10 +463,18 @@
             const gp = navigator.getGamepads()[0];
             if (gp) {
                 const deadzone = 0.2;
-                if (gp.axes[1] < -deadzone) gestisciInput("SU");
-                else if (gp.axes[1] > deadzone) gestisciInput("GIU");
-                if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
-                else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
+                
+                // Se siamo in Fighter War, ignoriamo Asse Y (Su/Giu)
+                if(giocoAttivo === 'fighter') {
+                    if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
+                    else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
+                } else {
+                    // Labirinto usa tutto
+                    if (gp.axes[1] < -deadzone) gestisciInput("SU");
+                    else if (gp.axes[1] > deadzone) gestisciInput("GIU");
+                    if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
+                    else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
+                }
             }
             requestAnimationFrame(joyLoop);
         }
