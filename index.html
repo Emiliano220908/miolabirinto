@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto 5 Livelli Hardcore</title>
+    <title>Labirinto 5 Livelli Fixato</title>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -14,7 +14,6 @@
         
         h1 { margin-bottom: 5px; font-size: 24px; }
 
-        /* L'area di gioco dinamica */
         #game-area {
             margin: 10px auto;
             position: relative;
@@ -22,28 +21,18 @@
             display: grid;
             border: 4px solid #fff;
             box-shadow: 0 0 20px rgba(0,255,0,0.2);
-            transition: border-color 0.2s; /* Per l'effetto flash rosso */
+            transition: border-color 0.2s; 
         }
 
-        /* Tipi di caselle */
         .cell { box-sizing: border-box; }
-        
-        .wall {
-            background-color: #555; 
-            border: 1px solid #333;
-        }
-
-        .path {
-            background-color: transparent; 
-        }
-
+        .wall { background-color: #555; border: 1px solid #333; }
+        .path { background-color: transparent; }
         .goal {
-            background-color: #0088ff; /* TRAGUARDO BLU */
+            background-color: #0088ff; 
             box-shadow: inset 0 0 10px #fff;
             animation: pulse 1s infinite alternate;
         }
 
-        /* Il Giocatore */
         #player {
             background-color: #00ff00; 
             position: absolute;
@@ -53,7 +42,6 @@
             box-shadow: 0 0 10px #00ff00;
         }
 
-        /* UI */
         #level-indicator { font-size: 20px; color: #0088ff; margin-bottom: 10px; }
         
         button { 
@@ -72,11 +60,11 @@
 </head>
 <body>
 
-    <h1>☠️ Labirinto Hardcore: 5 Livelli</h1>
+    <h1>☠️ Labirinto Fixato</h1>
     <div id="level-indicator">Livello 1 di 5</div>
     
     <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
-    <div id="status" style="font-size: 14px; color: #888;">⚠️ ATTENZIONE: Se tocchi i muri ricominci!</div>
+    <div id="status" style="font-size: 14px; color: #888;">⚠️ Muoviti con calma!</div>
     
     <div id="game-area">
         <div id="player"></div>
@@ -85,11 +73,10 @@
     <script>
         // --- CONFIGURAZIONE ---
         const cellSize = 30; 
+        const MOVE_DELAY = 150; // MILLISECONDI DI ATTESA TRA UN PASSO E L'ALTRO
         
-        // LEGENDA: 0=Strada, 1=Muro, 2=TRAGUARDO
-        // Mappe 20 colonne x 12 righe
         const levels = [
-            // LIVELLO 1: Riscaldamento
+            // LIVELLO 1
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -104,7 +91,7 @@
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], 
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 2: I Corridoi
+            // LIVELLO 2
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
@@ -119,7 +106,7 @@
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 3: Zig Zag
+            // LIVELLO 3
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -134,7 +121,7 @@
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 4: Il Serpente
+            // LIVELLO 4
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
@@ -149,7 +136,7 @@
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 5: L'Incubo Finale
+            // LIVELLO 5
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
@@ -168,9 +155,9 @@
 
         let currentLevelIndex = 0;
         let map = [];
-        let gridX = 1; // Start X
-        let gridY = 1; // Start Y
-        let lastMoveTime = 0;
+        let gridX = 1; 
+        let gridY = 1; 
+        let lastMoveTime = 0; // VARIABILE FONDAMENTALE PER IL RITARDO
 
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
@@ -185,17 +172,14 @@
                 return;
             }
 
-            // Pulisci vecchia mappa
             gameArea.innerHTML = '';
             map = levels[index];
             currentLevelIndex = index;
             levelText.innerText = "Livello " + (index + 1) + " di " + levels.length;
 
-            // Reset Posizione Giocatore
             gridX = 1;
             gridY = 1;
 
-            // Dimensioni dinamiche
             const rows = map.length;
             const cols = map[0].length;
             gameArea.style.width = (cols * cellSize) + "px";
@@ -203,7 +187,6 @@
             gameArea.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
             gameArea.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
 
-            // Disegna
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const cell = document.createElement('div');
@@ -223,6 +206,14 @@
 
         // --- MOVIMENTO E COLLISIONI (LOGICA "DEATH") ---
         function muoviGiocatore(direzione) {
+            
+            // --- IL FIX FONDAMENTALE ---
+            // Se non sono passati almeno 150ms dall'ultimo passo, IGNORA il comando.
+            if (Date.now() - lastMoveTime < MOVE_DELAY) {
+                return; 
+            }
+            // --------------------------
+
             let nextX = gridX;
             let nextY = gridY;
 
@@ -236,20 +227,18 @@
                 const targetCell = map[nextY][nextX];
 
                 if (targetCell === 0) {
-                    // Strada libera
                     gridX = nextX;
                     gridY = nextY;
                     updatePlayerPosition();
-                    lastMoveTime = Date.now();
+                    lastMoveTime = Date.now(); // RESETTA IL TIMER
                 } else if (targetCell === 1) {
-                    // --- MURO! MORTE! ---
                     deathEffect();
                     gridX = 1;
                     gridY = 1;
                     updatePlayerPosition();
-                    console.log("Muro preso! Ricominci.");
+                    console.log("SBAM! Muro.");
+                    lastMoveTime = Date.now(); // RESETTA ANCHE SE MUORI
                 } else if (targetCell === 2) {
-                    // --- VITTORIA ---
                     gridX = nextX;
                     gridY = nextY;
                     updatePlayerPosition();
@@ -262,7 +251,6 @@
         }
 
         function deathEffect() {
-            // Flash rosso sul bordo
             gameArea.style.borderColor = "red";
             setTimeout(() => {
                 gameArea.style.borderColor = "white";
@@ -279,7 +267,7 @@
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0]; 
 
-            if (gp && Date.now() - lastMoveTime > 150) { 
+            if (gp) { 
                 if (gp.axes[1] < -0.5) muoviGiocatore("SU");
                 else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
                 else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
