@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto 5 Livelli Hardcore</title>
+    <title>Labirinto 3 Livelli + Joystick</title>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -9,7 +9,7 @@
             background-color: #1a1a1a; 
             color: white; 
             padding-top: 10px;
-            overflow: hidden; 
+            overflow: hidden; /* Evita scrollbar se possibile */
         }
         
         h1 { margin-bottom: 5px; font-size: 24px; }
@@ -20,21 +20,21 @@
             position: relative;
             background-color: #000;
             display: grid;
+            /* La griglia viene definita da JS in base alla mappa */
             border: 4px solid #fff;
             box-shadow: 0 0 20px rgba(0,255,0,0.2);
-            transition: border-color 0.2s; /* Per l'effetto flash rosso */
         }
 
         /* Tipi di caselle */
         .cell { box-sizing: border-box; }
         
         .wall {
-            background-color: #555; 
+            background-color: #555; /* Muro Grigio */
             border: 1px solid #333;
         }
 
         .path {
-            background-color: transparent; 
+            background-color: transparent; /* Strada Nera */
         }
 
         .goal {
@@ -45,10 +45,10 @@
 
         /* Il Giocatore */
         #player {
-            background-color: #00ff00; 
+            background-color: #00ff00; /* Verde acceso */
             position: absolute;
-            transition: top 0.1s, left 0.1s; 
-            border-radius: 50%; 
+            transition: top 0.1s, left 0.1s; /* Movimento fluido */
+            border-radius: 50%; /* Pallino rotondo */
             z-index: 10;
             box-shadow: 0 0 10px #00ff00;
         }
@@ -72,11 +72,11 @@
 </head>
 <body>
 
-    <h1>☠️ Labirinto Hardcore: 5 Livelli</h1>
-    <div id="level-indicator">Livello 1 di 5</div>
+    <h1>🏆 Labirinto: 3 Livelli</h1>
+    <div id="level-indicator">Livello 1 di 3</div>
     
     <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
-    <div id="status" style="font-size: 14px; color: #888;">⚠️ ATTENZIONE: Se tocchi i muri ricominci!</div>
+    <div id="status" style="font-size: 14px; color: #888;">Usa Joystick Arduino o Bluetooth</div>
     
     <div id="game-area">
         <div id="player"></div>
@@ -84,12 +84,12 @@
 
     <script>
         // --- CONFIGURAZIONE ---
-        const cellSize = 30; 
+        const cellSize = 30; // Dimensione casella (più piccola per farne stare di più)
         
-        // LEGENDA: 0=Strada, 1=Muro, 2=TRAGUARDO
-        // Mappe 20 colonne x 12 righe
+        // LEGENDA MAPPA: 0=Strada, 1=Muro, 2=TRAGUARDO
+        // Mappe 20 colonne x 12 righe (Più larghe)
         const levels = [
-            // LIVELLO 1: Riscaldamento
+            // LIVELLO 1: Facile
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -101,17 +101,17 @@
                 [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
                 [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], 
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], // Traguardo in basso a dx
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 2: I Corridoi
+            // LIVELLO 2: Medio
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
                 [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
                 [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
                 [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], 
+                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], // Traguardo a sinistra
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
                 [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
@@ -119,7 +119,7 @@
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 3: Zig Zag
+            // LIVELLO 3: Labirinto a zig zag
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -128,40 +128,10 @@
                 [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
                 [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
                 [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
-                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], 
+                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], // Traguardo al centro
                 [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
                 [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 4: Il Serpente
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
-                [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
-                [1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 5: L'Incubo Finale
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
-                [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1],
-                [1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,2,1],
-                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1],
-                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-                [1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1],
-                [1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,1],
-                [1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,0,1],
-                [1,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0,1],
-                [1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ]
         ];
@@ -179,7 +149,7 @@
         // --- CARICA LIVELLO ---
         function loadLevel(index) {
             if (index >= levels.length) {
-                alert("🏆 CAMPIONE! Hai finito tutti i 5 livelli!");
+                alert("🏆 HAI VINTO TUTTO IL GIOCO! 🏆");
                 currentLevelIndex = 0;
                 loadLevel(0);
                 return;
@@ -191,11 +161,11 @@
             currentLevelIndex = index;
             levelText.innerText = "Livello " + (index + 1) + " di " + levels.length;
 
-            // Reset Posizione Giocatore
+            // Reset Posizione Giocatore (Sempre 1,1 all'inizio)
             gridX = 1;
             gridY = 1;
 
-            // Dimensioni dinamiche
+            // Imposta dimensioni griglia CSS dinamiche
             const rows = map.length;
             const cols = map[0].length;
             gameArea.style.width = (cols * cellSize) + "px";
@@ -203,7 +173,7 @@
             gameArea.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
             gameArea.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
 
-            // Disegna
+            // Disegna Muri e Traguardo
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const cell = document.createElement('div');
@@ -215,13 +185,18 @@
                 }
             }
 
+            // Aggiungi Giocatore
+            player.style.width = (cellSize - 6) + "px";
+            player.style.height = (cellSize - 6) + "px";
+            player.style.margin = "3px"; // Centratura
             gameArea.appendChild(player);
             updatePlayerPosition();
         }
 
+        // Avvia il primo livello
         loadLevel(0);
 
-        // --- MOVIMENTO E COLLISIONI (LOGICA "DEATH") ---
+        // --- MOVIMENTO E LOGICA GIOCO ---
         function muoviGiocatore(direzione) {
             let nextX = gridX;
             let nextY = gridY;
@@ -231,25 +206,18 @@
             if (direzione === "SINISTRA") nextX--;
             if (direzione === "DESTRA") nextX++;
 
-            // Controlli limiti
+            // Controlli limiti array
             if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
                 const targetCell = map[nextY][nextX];
 
                 if (targetCell === 0) {
-                    // Strada libera
+                    // Cammina
                     gridX = nextX;
                     gridY = nextY;
                     updatePlayerPosition();
                     lastMoveTime = Date.now();
-                } else if (targetCell === 1) {
-                    // --- MURO! MORTE! ---
-                    deathEffect();
-                    gridX = 1;
-                    gridY = 1;
-                    updatePlayerPosition();
-                    console.log("Muro preso! Ricominci.");
                 } else if (targetCell === 2) {
-                    // --- VITTORIA ---
+                    // TRAGUARDO!
                     gridX = nextX;
                     gridY = nextY;
                     updatePlayerPosition();
@@ -259,14 +227,6 @@
                     }, 100);
                 }
             }
-        }
-
-        function deathEffect() {
-            // Flash rosso sul bordo
-            gameArea.style.borderColor = "red";
-            setTimeout(() => {
-                gameArea.style.borderColor = "white";
-            }, 300);
         }
 
         function updatePlayerPosition() {
@@ -290,7 +250,7 @@
         gameLoop(); 
 
         window.addEventListener("gamepadconnected", () => {
-            document.getElementById('status').innerText = "🎮 Controller Connesso! (Attento ai muri)";
+            document.getElementById('status').innerText = "🎮 Controller Connesso!";
         });
 
         // --- INPUT ARDUINO USB ---
