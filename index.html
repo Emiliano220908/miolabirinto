@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto DIAGNOSTICA</title>
+    <title>Labirinto SENSIBILE</title>
     <style>
         body { 
             font-family: monospace; 
@@ -12,18 +12,40 @@
             overflow: hidden; 
         }
 
+        /* FRECCE DIAGNOSTICHE */
+        #arrows-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .arrow-box {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #555;
+            line-height: 40px;
+            font-size: 20px;
+            background: #222;
+            color: #555;
+            border-radius: 5px;
+        }
+        .arrow-active {
+            background-color: #f00 !important; /* ROSSO QUANDO ATTIVO */
+            color: white !important;
+            border-color: #f00 !important;
+            box-shadow: 0 0 10px #f00;
+        }
+
         #dashboard {
             background: #222;
             border: 2px solid #555;
             padding: 10px;
             margin: 0 auto 10px auto;
-            width: 80%;
+            width: 90%;
             border-radius: 10px;
             text-align: left;
+            font-size: 14px;
         }
-
-        .debug-line { margin: 5px 0; font-size: 16px; color: #0f0; }
-        .error-line { color: #f55; }
 
         #game-area {
             margin: 0 auto;
@@ -35,7 +57,7 @@
 
         .cell { box-sizing: border-box; }
         .wall { background-color: #666; border: 1px solid #444; }
-        .path { background-color: #000; } /* Strada nera ben visibile */
+        .path { background-color: #000; } 
         .goal { background-color: blue; }
 
         #player {
@@ -44,19 +66,23 @@
             transition: all 0.1s; 
             border-radius: 50%; 
             z-index: 10;
-            box-shadow: 0 0 5px #0f0;
         }
     </style>
 </head>
 <body>
 
-    <h1>🔧 MODALITÀ DIAGNOSTICA (INVINCIBILE)</h1>
+    <h1>🕹️ TEST SENSIBILITÀ</h1>
     
+    <div id="arrows-container">
+        <div id="arrow-UP" class="arrow-box">⬆️</div>
+        <div id="arrow-DOWN" class="arrow-box">⬇️</div>
+        <div id="arrow-LEFT" class="arrow-box">⬅️</div>
+        <div id="arrow-RIGHT" class="arrow-box">➡️</div>
+    </div>
+
     <div id="dashboard">
-        <div class="debug-line">🕹️ JOYSTICK INPUT: <span id="raw-values" style="color:yellow">In attesa...</span></div>
-        <div class="debug-line">📍 POSIZIONE PLAYER: <span id="player-pos">1, 1</span></div>
-        <div class="debug-line">📝 LOGICA GIOCO: <span id="game-log">Muovi la levetta per testare...</span></div>
-        <button id="connectBtn" style="margin-top:5px; padding:5px;">🔌 Connetti Arduino USB</button>
+        <div>VALORI GREZZI: <span id="raw-values" style="color:yellow">Muovi levetta...</span></div>
+        <div>AZIONI: <span id="game-log">Attesa...</span></div>
     </div>
     
     <div id="game-area">
@@ -64,16 +90,17 @@
     </div>
 
     <script>
-        // --- CONFIGURAZIONE ---
         const cellSize = 30; 
         const MOVE_DELAY = 150; 
-        
-        // Uso solo il Livello 1 per il test, molto semplice
+        // SOGLIA BASSISSIMA: Basta 0.15 per attivare (prima era 0.5)
+        const DEADZONE = 0.15; 
+
+        // Mappa Semplice (Tutto libero al centro)
         const map = [
                 [1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,1], // Start è a 1,1 (la prima 0)
-                [1,0,1,1,1,1,1,1,0,1],
                 [1,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,1], // Start a 1,3 per avere spazio
                 [1,1,1,1,1,0,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,1],
                 [1,0,1,1,1,1,1,1,0,1],
@@ -82,16 +109,14 @@
         ];
 
         let gridX = 1; 
-        let gridY = 1; 
+        let gridY = 3; // Partiamo più in basso così non hai muri sopra
         let lastMoveTime = 0;
 
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
         const rawValuesTxt = document.getElementById('raw-values');
-        const playerPosTxt = document.getElementById('player-pos');
         const gameLogTxt = document.getElementById('game-log');
 
-        // --- DISEGNA MAPPA ---
         function initMap() {
             const rows = map.length;
             const cols = map[0].length;
@@ -115,8 +140,14 @@
         }
         initMap();
 
-        // --- LOGICA MOVIMENTO DIAGNOSTICA ---
         function muoviGiocatore(direzione) {
+            // Illuminiamo la freccia corrispondente
+            resetArrows();
+            if(direzione === "SU") document.getElementById('arrow-UP').classList.add('arrow-active');
+            if(direzione === "GIU") document.getElementById('arrow-DOWN').classList.add('arrow-active');
+            if(direzione === "SINISTRA") document.getElementById('arrow-LEFT').classList.add('arrow-active');
+            if(direzione === "DESTRA") document.getElementById('arrow-RIGHT').classList.add('arrow-active');
+
             if (Date.now() - lastMoveTime < MOVE_DELAY) return;
 
             let nextX = gridX;
@@ -127,34 +158,28 @@
             if (direzione === "SINISTRA") nextX--;
             if (direzione === "DESTRA") nextX++;
 
-            // Log del tentativo
-            gameLogTxt.innerText = `Provo ${direzione} verso [X:${nextX}, Y:${nextY}]...`;
-
+            // Controllo Mappa
             if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
                 const targetCell = map[nextY][nextX];
-
                 if (targetCell === 0) {
-                    // OK
                     gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
-                    gameLogTxt.innerText += " ✅ OK! Strada libera.";
+                    gameLogTxt.innerText = `✅ Muovo a ${direzione}`;
                     gameLogTxt.style.color = "#0f0";
                 } else if (targetCell === 1) {
-                    // MURO - MA NON RESETTO
-                    gameLogTxt.innerText += " 🧱 MURO! (Valore 1). Bloccato.";
-                    gameLogTxt.style.color = "#f55";
+                    gameLogTxt.innerText = `🧱 Muro a ${direzione}`;
+                    gameLogTxt.style.color = "red";
                     flashRed();
                 } else if (targetCell === 2) {
-                    gridX = nextX; gridY = nextY;
-                    updatePlayerPosition();
-                    gameLogTxt.innerText += " 🏆 VITTORIA!";
+                     gameLogTxt.innerText = `🏆 VINTO!`;
+                     gridX = 1; gridY = 3; updatePlayerPosition();
                 }
-            } else {
-                 gameLogTxt.innerText += " 🚫 FUORI MAPPA.";
             }
-            
-            playerPosTxt.innerText = `${gridX}, ${gridY}`;
             lastMoveTime = Date.now();
+        }
+
+        function resetArrows() {
+            document.querySelectorAll('.arrow-box').forEach(el => el.classList.remove('arrow-active'));
         }
 
         function flashRed() {
@@ -167,62 +192,39 @@
             player.style.left = (gridX * cellSize) + 'px';
         }
 
-        // --- JOYSTICK LOOP DIAGNOSTICO ---
         function gameLoop() {
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0]; 
             
             if (gp) {
-                // VISUALIZZA I VALORI GREZZI
-                // Arrotondiamo a 2 decimali per leggere meglio
-                const ax0 = gp.axes[0].toFixed(2);
-                const ax1 = gp.axes[1].toFixed(2);
+                // Leggiamo 4 assi per sicurezza (alcuni joystick usano 2 e 3)
+                const ax0 = gp.axes[0] || 0;
+                const ax1 = gp.axes[1] || 0;
+                const ax2 = gp.axes[2] || 0; // Stick destro X
+                const ax3 = gp.axes[3] || 0; // Stick destro Y
                 
-                rawValuesTxt.innerText = `Asse 0 (X): ${ax0} | Asse 1 (Y): ${ax1}`;
+                rawValuesTxt.innerText = `X:${ax0.toFixed(2)} Y:${ax1.toFixed(2)} | DX:${ax2.toFixed(2)} DY:${ax3.toFixed(2)}`;
 
-                // Logica standard
-                if (gp.axes[1] < -0.5) muoviGiocatore("SU");
-                else if (gp.axes[1] > 0.5) muoviGiocatore("GIU");
-                else if (gp.axes[0] < -0.5) muoviGiocatore("SINISTRA");
-                else if (gp.axes[0] > 0.5) muoviGiocatore("DESTRA");
-            } else {
-                rawValuesTxt.innerText = "Nessun Controller rilevato. Premi un tasto.";
+                // PROVIAMO TUTTI GLI ASSI
+                // Stick Sinistro
+                if (ax1 < -DEADZONE) muoviGiocatore("SU");
+                else if (ax1 > DEADZONE) muoviGiocatore("GIU");
+                else if (ax0 < -DEADZONE) muoviGiocatore("SINISTRA");
+                else if (ax0 > DEADZONE) muoviGiocatore("DESTRA");
+                
+                // Stick Destro (nel caso stessi usando quello per sbaglio)
+                else if (ax3 < -DEADZONE) muoviGiocatore("SU");
+                else if (ax3 > DEADZONE) muoviGiocatore("GIU");
+                else if (ax2 < -DEADZONE) muoviGiocatore("SINISTRA");
+                else if (ax2 > DEADZONE) muoviGiocatore("DESTRA");
+                
+                else {
+                    resetArrows(); // Spegni frecce se non tocchi
+                }
             }
             requestAnimationFrame(gameLoop);
         }
         gameLoop(); 
-
-        // --- ARDUINO USB ---
-        let port, reader;
-        document.getElementById('connectBtn').addEventListener('click', async () => {
-            if ("serial" in navigator) {
-                try {
-                    port = await navigator.serial.requestPort();
-                    await port.open({ baudRate: 9600 });
-                    const textDecoder = new TextDecoderStream();
-                    port.readable.pipeTo(textDecoder.writable);
-                    reader = textDecoder.readable.getReader();
-                    readSerialLoop();
-                    document.getElementById('connectBtn').innerText = "✅ USB Connesso";
-                } catch (err) { alert("Errore: " + err); }
-            }
-        });
-
-        async function readSerialLoop() {
-            let buffer = ""; 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                if (value) {
-                    buffer += value;
-                    if (buffer.includes('\n')) {
-                        const comandi = buffer.split('\n');
-                        buffer = comandi.pop(); 
-                        for (let cmd of comandi) muoviGiocatore(cmd.trim());
-                    }
-                }
-            }
-        }
     </script>
 </body>
 </html>
