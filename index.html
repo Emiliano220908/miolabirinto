@@ -1,95 +1,210 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Labirinto 3 Livelli + Joystick</title>
+    <title>La Mia Console Arduino</title>
     <style>
+        /* --- STILE GENERALE --- */
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             text-align: center; 
             background-color: #1a1a1a; 
             color: white; 
-            padding-top: 10px;
-            overflow: hidden; /* Evita scrollbar se possibile */
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
         }
-        
-        h1 { margin-bottom: 5px; font-size: 24px; }
 
-        /* L'area di gioco dinamica */
+        /* --- STILE DEL MENU --- */
+        #main-menu {
+            display: flex; /* Mostra il menu all'inizio */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+        }
+
+        .menu-title {
+            font-size: 40px;
+            margin-bottom: 50px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #4CAF50;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        .cards-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .game-card {
+            width: 250px;
+            height: 300px;
+            background-color: #333;
+            border: 4px solid #555;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            border-color: #4CAF50;
+            background-color: #444;
+            box-shadow: 0 15px 30px rgba(76, 175, 80, 0.4);
+        }
+
+        .card-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* --- STILE DEL GIOCO (Tuo codice originale adattato) --- */
+        #game-wrapper {
+            display: none; /* Nascosto all'inizio */
+            height: 100vh;
+            padding-top: 10px;
+        }
+
+        #future-wrapper {
+            display: none; /* Nascosto all'inizio */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Pulsante "Torna al Menu" */
+        .back-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 8px 15px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 100;
+        }
+
+        /* --- IL TUO CSS ORIGINALE PER IL LABIRINTO --- */
         #game-area {
             margin: 10px auto;
             position: relative;
             background-color: #000;
             display: grid;
-            /* La griglia viene definita da JS in base alla mappa */
             border: 4px solid #fff;
             box-shadow: 0 0 20px rgba(0,255,0,0.2);
         }
-
-        /* Tipi di caselle */
         .cell { box-sizing: border-box; }
-        
-        .wall {
-            background-color: #555; /* Muro Grigio */
-            border: 1px solid #333;
-        }
-
-        .path {
-            background-color: transparent; /* Strada Nera */
-        }
-
+        .wall { background-color: #555; border: 1px solid #333; }
+        .path { background-color: transparent; }
         .goal {
-            background-color: #0088ff; /* TRAGUARDO BLU */
+            background-color: #0088ff; 
             box-shadow: inset 0 0 10px #fff;
             animation: pulse 1s infinite alternate;
         }
-
-        /* Il Giocatore */
         #player {
-            background-color: #00ff00; /* Verde acceso */
+            background-color: #00ff00; 
             position: absolute;
-            transition: top 0.1s, left 0.1s; /* Movimento fluido */
-            border-radius: 50%; /* Pallino rotondo */
+            transition: top 0.1s, left 0.1s; 
+            border-radius: 50%; 
             z-index: 10;
             box-shadow: 0 0 10px #00ff00;
         }
-
-        /* UI */
         #level-indicator { font-size: 20px; color: #0088ff; margin-bottom: 10px; }
-        
-        button { 
-            padding: 10px 20px; 
-            font-size: 16px; 
-            cursor: pointer; 
-            background-color: #4CAF50; 
-            color: white; 
-            border: none; 
-            border-radius: 5px; 
-            margin-bottom: 10px;
+        .game-btn { 
+            padding: 10px 20px; font-size: 16px; cursor: pointer; 
+            background-color: #4CAF50; color: white; border: none; 
+            border-radius: 5px; margin-bottom: 10px;
         }
-
         @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <h1>🏆 Labirinto: 3 Livelli</h1>
-    <div id="level-indicator">Livello 1 di 3</div>
-    
-    <button id="connectBtn">🔌 CONNETTI ARDUINO (USB)</button>
-    <div id="status" style="font-size: 14px; color: #888;">Usa Joystick Arduino o Bluetooth</div>
-    
-    <div id="game-area">
-        <div id="player"></div>
+    <div id="main-menu">
+        <div class="menu-title">🎮 La Mia Console</div>
+        
+        <div class="cards-container">
+            <div class="game-card" onclick="openGame('maze')">
+                <div class="card-icon">🏆</div>
+                <div class="card-title">Il Labirinto</div>
+                <div style="font-size: 14px; color: #aaa; margin-top: 5px;">3 Livelli + Joystick</div>
+            </div>
+
+            <div class="game-card" onclick="openGame('future')">
+                <div class="card-icon">🚀</div>
+                <div class="card-title">Nuovo Gioco</div>
+                <div style="font-size: 14px; color: #aaa; margin-top: 5px;">In arrivo...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-wrapper">
+        <button class="back-btn" onclick="goBack()">⬅ MENU</button>
+
+        <h1>🏆 Labirinto: 3 Livelli</h1>
+        <div id="level-indicator">Livello 1 di 3</div>
+        
+        <button id="connectBtn" class="game-btn">🔌 CONNETTI ARDUINO (USB)</button>
+        <div id="status" style="font-size: 14px; color: #888;">Usa Joystick Arduino o Bluetooth</div>
+        
+        <div id="game-area">
+            <div id="player"></div>
+        </div>
+    </div>
+
+    <div id="future-wrapper" style="display: none;">
+        <button class="back-btn" onclick="goBack()">⬅ MENU</button>
+        <h1>🚧 Lavori in corso...</h1>
+        <p>Qui metteremo il prossimo progetto (magari con la PS4?)</p>
+        <div style="font-size: 80px;">🔨</div>
     </div>
 
     <script>
-        // --- CONFIGURAZIONE ---
-        const cellSize = 30; // Dimensione casella (più piccola per farne stare di più)
+        // --- GESTIONE MENU ---
+        function openGame(gameName) {
+            // Nascondi il menu
+            document.getElementById('main-menu').style.display = 'none';
+
+            // Mostra il gioco scelto
+            if (gameName === 'maze') {
+                document.getElementById('game-wrapper').style.display = 'block';
+                // Assicuriamoci che il gioco sia pronto (opzionale: ricarica livello)
+            } else if (gameName === 'future') {
+                document.getElementById('future-wrapper').style.display = 'flex';
+            }
+        }
+
+        function goBack() {
+            // Nascondi tutti i giochi
+            document.getElementById('game-wrapper').style.display = 'none';
+            document.getElementById('future-wrapper').style.display = 'none';
+            
+            // Mostra il menu
+            document.getElementById('main-menu').style.display = 'flex';
+        }
+
+        // --- IL TUO CODICE DEL LABIRINTO (Incollato qui sotto) ---
+        const cellSize = 30; 
         
-        // LEGENDA MAPPA: 0=Strada, 1=Muro, 2=TRAGUARDO
-        // Mappe 20 colonne x 12 righe (Più larghe)
         const levels = [
-            // LIVELLO 1: Facile
+            // LIVELLO 1
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -101,17 +216,17 @@
                 [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
                 [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], // Traguardo in basso a dx
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 2: Medio
+            // LIVELLO 2
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
                 [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
                 [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
                 [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], // Traguardo a sinistra
+                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], 
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
                 [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
@@ -119,7 +234,7 @@
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             ],
-            // LIVELLO 3: Labirinto a zig zag
+            // LIVELLO 3
             [
                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -128,7 +243,7 @@
                 [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
                 [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
                 [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
-                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], // Traguardo al centro
+                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1],
                 [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
                 [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
                 [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
@@ -138,15 +253,14 @@
 
         let currentLevelIndex = 0;
         let map = [];
-        let gridX = 1; // Start X
-        let gridY = 1; // Start Y
+        let gridX = 1; 
+        let gridY = 1; 
         let lastMoveTime = 0;
 
         const gameArea = document.getElementById('game-area');
         const player = document.getElementById('player');
         const levelText = document.getElementById('level-indicator');
 
-        // --- CARICA LIVELLO ---
         function loadLevel(index) {
             if (index >= levels.length) {
                 alert("🏆 HAI VINTO TUTTO IL GIOCO! 🏆");
@@ -155,17 +269,13 @@
                 return;
             }
 
-            // Pulisci vecchia mappa
             gameArea.innerHTML = '';
             map = levels[index];
             currentLevelIndex = index;
             levelText.innerText = "Livello " + (index + 1) + " di " + levels.length;
 
-            // Reset Posizione Giocatore (Sempre 1,1 all'inizio)
-            gridX = 1;
-            gridY = 1;
+            gridX = 1; gridY = 1;
 
-            // Imposta dimensioni griglia CSS dinamiche
             const rows = map.length;
             const cols = map[0].length;
             gameArea.style.width = (cols * cellSize) + "px";
@@ -173,7 +283,6 @@
             gameArea.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
             gameArea.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
 
-            // Disegna Muri e Traguardo
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const cell = document.createElement('div');
@@ -184,19 +293,15 @@
                     gameArea.appendChild(cell);
                 }
             }
-
-            // Aggiungi Giocatore
             player.style.width = (cellSize - 6) + "px";
             player.style.height = (cellSize - 6) + "px";
-            player.style.margin = "3px"; // Centratura
+            player.style.margin = "3px"; 
             gameArea.appendChild(player);
             updatePlayerPosition();
         }
 
-        // Avvia il primo livello
         loadLevel(0);
 
-        // --- MOVIMENTO E LOGICA GIOCO ---
         function muoviGiocatore(direzione) {
             let nextX = gridX;
             let nextY = gridY;
@@ -206,20 +311,14 @@
             if (direzione === "SINISTRA") nextX--;
             if (direzione === "DESTRA") nextX++;
 
-            // Controlli limiti array
             if (nextY >= 0 && nextY < map.length && nextX >= 0 && nextX < map[0].length) {
                 const targetCell = map[nextY][nextX];
-
                 if (targetCell === 0) {
-                    // Cammina
-                    gridX = nextX;
-                    gridY = nextY;
+                    gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
                     lastMoveTime = Date.now();
                 } else if (targetCell === 2) {
-                    // TRAGUARDO!
-                    gridX = nextX;
-                    gridY = nextY;
+                    gridX = nextX; gridY = nextY;
                     updatePlayerPosition();
                     setTimeout(() => {
                         alert("🎉 LIVELLO SUPERATO!");
@@ -234,7 +333,6 @@
             player.style.left = (gridX * cellSize) + 'px';
         }
 
-        // --- INPUT JOYSTICK BLUETOOTH ---
         function gameLoop() {
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0]; 
@@ -253,7 +351,6 @@
             document.getElementById('status').innerText = "🎮 Controller Connesso!";
         });
 
-        // --- INPUT ARDUINO USB ---
         let port, reader;
         document.getElementById('connectBtn').addEventListener('click', async () => {
             if ("serial" in navigator) {
