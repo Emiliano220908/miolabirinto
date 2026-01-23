@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v6 (5 Livelli + Turbo Fighter)</title>
+    <title>Console Arduino v7 (Classifica + Save)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -27,11 +27,28 @@
 
         .menu-title {
             font-size: 50px;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
             text-transform: uppercase;
             letter-spacing: 5px;
             color: #4CAF50;
             text-shadow: 0 0 10px #4CAF50;
+        }
+
+        /* CAMPO NOME GIOCATORE */
+        #player-input-container {
+            margin-bottom: 30px;
+        }
+        #player-name-input {
+            padding: 15px;
+            font-size: 20px;
+            border-radius: 10px;
+            border: 2px solid #4CAF50;
+            background: #222;
+            color: white;
+            text-align: center;
+            width: 250px;
+            text-transform: uppercase;
+            font-weight: bold;
         }
 
         .cards-container { display: flex; gap: 40px; }
@@ -61,19 +78,41 @@
         .card-title { font-size: 24px; font-weight: bold; text-transform: uppercase; }
         .card-desc { font-size: 14px; color: #888; margin-top: 10px; }
 
-        /* --- PULSANTI E UI --- */
+        /* --- UI DI GIOCO --- */
         .back-btn {
             position: absolute; top: 15px; left: 15px;
             padding: 10px 20px; background-color: #ff3333; color: white;
             border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
             z-index: 100;
         }
-
+        
         .game-btn { 
             padding: 10px 20px; font-size: 16px; cursor: pointer; 
             background-color: #4CAF50; color: white; border: none; 
             border-radius: 5px; margin-bottom: 10px;
         }
+
+        /* --- CLASSIFICA OVERLAY --- */
+        #leaderboard-overlay {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 4px solid #ff0055;
+            padding: 30px;
+            border-radius: 20px;
+            z-index: 200;
+            width: 300px;
+            box-shadow: 0 0 50px rgba(255, 0, 85, 0.5);
+        }
+        .leader-row {
+            display: flex; justify-content: space-between;
+            font-size: 18px; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;
+        }
+        .leader-rank { color: #ff0055; font-weight: bold; }
+        .leader-name { color: white; }
+        .leader-score { color: #ffff00; }
 
         /* --- GIOCO 1: LABIRINTO --- */
         #maze-wrapper { display: none; height: 100vh; padding-top: 10px; }
@@ -109,9 +148,7 @@
         #fighter-player {
             width: 30px; height: 30px;
             background-color: #00ffcc; 
-            position: absolute; 
-            bottom: 20px; 
-            left: 0;      
+            position: absolute; bottom: 20px; left: 0;      
             clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
             box-shadow: 0 0 10px #00ffcc;
             transform: translateX(185px); 
@@ -144,6 +181,10 @@
     <div id="main-menu">
         <div class="menu-title">🕹️ Console Arduino</div>
         
+        <div id="player-input-container">
+            <input type="text" id="player-name-input" placeholder="INSERISCI NOME" maxlength="8">
+        </div>
+
         <div class="cards-container">
             <div class="game-card" onclick="openGame('maze')">
                 <div class="card-icon" style="color:#00ff00">🧩</div>
@@ -154,7 +195,7 @@
             <div class="game-card" onclick="openGame('fighter')">
                 <div class="card-icon" style="color:#ff0055">🚀</div>
                 <div class="card-title">Fighter War</div>
-                <div class="card-desc">TURBO MODE</div>
+                <div class="card-desc">Con Classifica</div>
             </div>
         </div>
         
@@ -168,10 +209,7 @@
         <button class="back-btn" onclick="goBack()">🏠 MENU</button>
         <h2 style="color:#00ff00">🧩 Labirinto</h2>
         <div id="maze-level-indicator">Livello 1</div>
-        
-        <div id="game-area-maze">
-            <div id="player-maze"></div>
-        </div>
+        <div id="game-area-maze"><div id="player-maze"></div></div>
     </div>
 
     <div id="fighter-wrapper">
@@ -179,18 +217,36 @@
         <h2 style="color:#ff0055">🚀 Fighter War</h2>
         <div id="score-board">Punti: 0</div>
 
+        <div id="leaderboard-overlay">
+            <h2 style="color:#ff0055; margin-top:0;">💀 GAME OVER</h2>
+            <div id="final-score" style="margin-bottom:20px; font-size:20px;">Punti: 0</div>
+            
+            <h3 style="border-bottom: 2px solid #555; padding-bottom:5px;">🏆 TOP 5 🏆</h3>
+            <div id="leaderboard-list">
+                </div>
+
+            <button class="game-btn" onclick="restartFighter()" style="margin-top:20px; width:100%;">RIGIOCA</button>
+            <button class="game-btn" onclick="goBack()" style="background-color:#444; width:100%;">ESCI</button>
+        </div>
+
         <div id="game-area-fighter">
             <div id="fighter-player"></div>
         </div>
-        <p style="font-size:12px; color:#aaa">MUOVITI SOLO A DESTRA E SINISTRA • PROTEGGI LA LINEA ROSSA!</p>
+        <p style="font-size:12px; color:#aaa">DIFENDI LA LINEA ROSSA!</p>
     </div>
 
     <script>
         // --- GESTIONE STATO GLOBALE ---
         let giocoAttivo = 'menu'; 
         let connectionStatus = document.getElementById('status');
+        let playerName = "GUEST";
 
         function openGame(gameName) {
+            // Leggi il nome
+            const inputVal = document.getElementById('player-name-input').value.trim();
+            if(inputVal !== "") playerName = inputVal.toUpperCase();
+            else playerName = "GUEST";
+
             document.getElementById('main-menu').style.display = 'none';
             giocoAttivo = gameName;
 
@@ -199,6 +255,7 @@
                 loadMazeLevel(0); 
             } else if (gameName === 'fighter') {
                 document.getElementById('fighter-wrapper').style.display = 'block';
+                document.getElementById('leaderboard-overlay').style.display = 'none'; // Nascondi classifica
                 startFighterGame(); 
             }
         }
@@ -206,36 +263,80 @@
         function goBack() {
             document.getElementById('maze-wrapper').style.display = 'none';
             document.getElementById('fighter-wrapper').style.display = 'none';
+            document.getElementById('leaderboard-overlay').style.display = 'none';
             document.getElementById('main-menu').style.display = 'flex';
             giocoAttivo = 'menu';
             stopFighterGame(); 
         }
 
         // =========================================================
-        //                 LOGICA INPUT (CENTRALINA)
+        //                 LOGICA CLASSIFICA (LOCALSTORAGE)
+        // =========================================================
+        function saveScore(score) {
+            // Prendi i vecchi punteggi o crea array vuoto
+            let scores = JSON.parse(localStorage.getItem('fighter_scores')) || [];
+            
+            // Aggiungi quello nuovo
+            scores.push({ name: playerName, score: score });
+            
+            // Ordina dal più alto al più basso
+            scores.sort((a, b) => b.score - a.score);
+            
+            // Tieni solo i top 5
+            scores = scores.slice(0, 5);
+            
+            // Salva
+            localStorage.setItem('fighter_scores', JSON.stringify(scores));
+            
+            return scores; // Ritorna la lista aggiornata
+        }
+
+        function showLeaderboard(currentScore) {
+            const list = saveScore(currentScore);
+            const container = document.getElementById('leaderboard-list');
+            container.innerHTML = ""; // Pulisci
+
+            list.forEach((entry, index) => {
+                let html = `
+                <div class="leader-row">
+                    <span class="leader-rank">#${index+1}</span>
+                    <span class="leader-name">${entry.name}</span>
+                    <span class="leader-score">${entry.score}</span>
+                </div>`;
+                container.innerHTML += html;
+            });
+
+            document.getElementById('final-score').innerText = "Il tuo punteggio: " + currentScore;
+            document.getElementById('leaderboard-overlay').style.display = 'block';
+        }
+
+        function restartFighter() {
+            document.getElementById('leaderboard-overlay').style.display = 'none';
+            startFighterGame();
+        }
+
+        // =========================================================
+        //                 LOGICA INPUT
         // =========================================================
         let lastInputTime = 0;
-        const MAZE_DELAY = 100; // Solo per il labirinto
+        const MAZE_DELAY = 100; 
 
         function gestisciInput(direzione) {
             if (giocoAttivo === 'menu') return;
 
-            // LABIRINTO (Con ritardo)
             if (giocoAttivo === 'maze') {
                 if (Date.now() - lastInputTime > MAZE_DELAY) {
                     muoviLabirinto(direzione);
                     lastInputTime = Date.now();
                 }
             }
-            
-            // FIGHTER WAR (Senza ritardo, fluido)
             if (giocoAttivo === 'fighter') {
                 muoviFighter(direzione);
             }
         }
 
         // =========================================================
-        //                 GIOCO 1: LABIRINTO (5 LIVELLI)
+        //                 GIOCO 1: LABIRINTO
         // =========================================================
         const mazeCellSize = 30;
         let mazeMap = [];
@@ -243,81 +344,12 @@
         let currentLevel = 0;
 
         const mazeLevels = [
-            // LIVELLO 1: Riscaldamento
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],
-                [1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],
-                [1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
-                [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 2: I Corridoi
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
-                [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
-                [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
-                [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
-                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 3: Zig Zag
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
-                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
-                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
-                [1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1], 
-                [1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],
-                [1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],
-                [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 4: Il Serpente
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
-                [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],
-                [1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,1],
-                [1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1],
-                [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
-                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // LIVELLO 5: L'Incubo Finale
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
-                [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1],
-                [1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,2,1],
-                [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1],
-                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-                [1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1],
-                [1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,1],
-                [1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,0,1],
-                [1,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0,1],
-                [1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ]
+            // (Qui ho riassunto i livelli per brevità, sono gli stessi 5 di prima)
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],[1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,2,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],[1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1],[1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,1],[1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0,1],[1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
         ];
 
         function loadMazeLevel(idx) {
@@ -382,16 +414,14 @@
         }
 
         // =========================================================
-        //                 GIOCO 2: FIGHTER WAR (TURBO)
+        //                 GIOCO 2: FIGHTER WAR
         // =========================================================
         let fighterX = 185;
         let fighterScore = 0;
         let fighterLoopId;
         let bullets = [];
         let enemies = [];
-        
-        // --- VELOCITÀ RADDOPPIATA (DA 10 a 20) ---
-        let fighterSpeed = 20; 
+        let fighterSpeed = 20; // VELOCITÀ ALTA
 
         function startFighterGame() {
             fighterX = 185; fighterScore = 0;
@@ -404,7 +434,6 @@
             area.appendChild(player);
             
             updateFighterPos();
-            
             if(fighterLoopId) clearInterval(fighterLoopId);
             fighterLoopId = setInterval(gameLoopFighter, 20); 
         }
@@ -414,27 +443,22 @@
         }
 
         function muoviFighter(dir) {
-            // SOLO DESTRA E SINISTRA
             if(dir==="SINISTRA" && fighterX > 0) fighterX -= fighterSpeed;
             if(dir==="DESTRA" && fighterX < 370) fighterX += fighterSpeed;
-            
             updateFighterPos();
         }
 
         function updateFighterPos() {
             const p = document.getElementById('fighter-player');
-            // Usiamo transform per la massima fluidità
             p.style.transform = `translateX(${fighterX}px)`;
         }
 
         let frameCount = 0;
         function gameLoopFighter() {
             frameCount++;
-            
             if (frameCount % 20 === 0) createBullet();
             if (frameCount % 50 === 0) createEnemy();
 
-            // 1. PROIETTILI
             for (let i = 0; i < bullets.length; i++) {
                 let b = bullets[i];
                 b.y -= 7; 
@@ -442,22 +466,20 @@
                 if (b.y < -10) { b.el.remove(); bullets.splice(i, 1); i--; }
             }
 
-            // 2. NEMICI
             for (let i = 0; i < enemies.length; i++) {
                 let e = enemies[i];
                 e.y += 2; 
                 e.el.style.top = e.y + "px";
 
-                // --- GAME OVER: NEMICO TOCCA IL FONDO ---
-                // Altezza box 500, Nemico alto 30.
+                // GAME OVER: TOCCO FONDO
                 if (e.y > 470) {
                     stopFighterGame();
-                    alert("💀 BASE INVAS! Punti: " + fighterScore);
-                    goBack();
+                    // MOSTRA LA CLASSIFICA INVECE DELL'ALERT
+                    showLeaderboard(fighterScore);
                     return;
                 }
 
-                // COLLISIONE PROIETTILE -> NEMICO
+                // COLLISIONE PROIETTILE
                 for (let j = 0; j < bullets.length; j++) {
                     let b = bullets[j];
                     if (isColliding(b, e)) {
@@ -469,12 +491,10 @@
                     }
                 }
                 
-                // COLLISIONE GIOCATORE -> NEMICO (DISTRUZIONE NEMICO)
+                // COLLISIONE PLAYER (Invincibile)
                 let playerObj = { x: fighterX, y: 450, w: 30, h: 30 };
                 if (enemies[i] && isColliding(enemies[i], playerObj)) {
-                    enemies[i].el.remove();
-                    enemies.splice(i, 1);
-                    i--;
+                    enemies[i].el.remove(); enemies.splice(i, 1); i--;
                 }
             }
         }
@@ -506,18 +526,14 @@
         // =========================================================
         //                 GESTIONE ARDUINO E JOYSTICK
         // =========================================================
-        
         function joyLoop() {
             const gp = navigator.getGamepads()[0];
             if (gp) {
                 const deadzone = 0.2;
-                
-                // Se siamo in Fighter War, ignoriamo Asse Y (Su/Giu)
                 if(giocoAttivo === 'fighter') {
                     if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
                     else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
                 } else {
-                    // Labirinto usa tutto
                     if (gp.axes[1] < -deadzone) gestisciInput("SU");
                     else if (gp.axes[1] > deadzone) gestisciInput("GIU");
                     if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
