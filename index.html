@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v7 (Classifica + Save)</title>
+    <title>Console Arduino v8 (Speedrun Labirinto)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -34,87 +34,64 @@
             text-shadow: 0 0 10px #4CAF50;
         }
 
-        /* CAMPO NOME GIOCATORE */
-        #player-input-container {
-            margin-bottom: 30px;
-        }
+        /* INPUT NOME */
+        #player-input-container { margin-bottom: 30px; }
         #player-name-input {
-            padding: 15px;
-            font-size: 20px;
-            border-radius: 10px;
-            border: 2px solid #4CAF50;
-            background: #222;
-            color: white;
-            text-align: center;
-            width: 250px;
-            text-transform: uppercase;
-            font-weight: bold;
+            padding: 15px; font-size: 20px; border-radius: 10px;
+            border: 2px solid #4CAF50; background: #222; color: white;
+            text-align: center; width: 250px; text-transform: uppercase; font-weight: bold;
         }
 
         .cards-container { display: flex; gap: 40px; }
 
         .game-card {
-            width: 260px;
-            height: 320px;
-            background-color: #222;
-            border: 2px solid #444;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            width: 260px; height: 320px; background-color: #222;
+            border: 2px solid #444; border-radius: 15px; cursor: pointer;
+            transition: all 0.3s; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
         }
-
         .game-card:hover {
             transform: translateY(-10px) scale(1.05);
-            border-color: #fff;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            border-color: #fff; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
         }
-
         .card-icon { font-size: 80px; margin-bottom: 20px; }
         .card-title { font-size: 24px; font-weight: bold; text-transform: uppercase; }
         .card-desc { font-size: 14px; color: #888; margin-top: 10px; }
 
-        /* --- UI DI GIOCO --- */
+        /* --- PULSANTI --- */
         .back-btn {
             position: absolute; top: 15px; left: 15px;
             padding: 10px 20px; background-color: #ff3333; color: white;
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
-            z-index: 100;
+            border: none; border-radius: 5px; cursor: pointer; font-weight: bold; z-index: 100;
         }
-        
+        .leaderboard-btn {
+            position: absolute; top: 15px; right: 15px;
+            padding: 10px 20px; background-color: #ffcc00; color: black;
+            border: none; border-radius: 5px; cursor: pointer; font-weight: bold; z-index: 100;
+        }
         .game-btn { 
             padding: 10px 20px; font-size: 16px; cursor: pointer; 
             background-color: #4CAF50; color: white; border: none; 
             border-radius: 5px; margin-bottom: 10px;
         }
 
-        /* --- CLASSIFICA OVERLAY --- */
-        #leaderboard-overlay {
-            display: none;
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.95);
-            border: 4px solid #ff0055;
-            padding: 30px;
-            border-radius: 20px;
-            z-index: 200;
-            width: 300px;
-            box-shadow: 0 0 50px rgba(255, 0, 85, 0.5);
+        /* --- OVERLAY CLASSIFICHE --- */
+        .overlay-screen {
+            display: none; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.95);
+            border: 4px solid #fff; padding: 30px; border-radius: 20px;
+            z-index: 200; width: 350px; box-shadow: 0 0 50px rgba(255, 255, 255, 0.2);
         }
         .leader-row {
             display: flex; justify-content: space-between;
             font-size: 18px; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;
         }
-        .leader-rank { color: #ff0055; font-weight: bold; }
+        .leader-rank { font-weight: bold; color: #aaa; }
         .leader-name { color: white; }
-        .leader-score { color: #ffff00; }
+        .leader-score { color: #ffff00; font-family: monospace; }
 
-        /* --- GIOCO 1: LABIRINTO --- */
+        /* --- GIOCO LABIRINTO --- */
         #maze-wrapper { display: none; height: 100vh; padding-top: 10px; }
         #game-area-maze {
             margin: 10px auto; position: relative; background-color: #000;
@@ -131,46 +108,28 @@
             z-index: 10; box-shadow: 0 0 10px #00ff00;
         }
 
-        /* --- GIOCO 2: FIGHTER WAR --- */
+        /* --- GIOCO FIGHTER WAR --- */
         #fighter-wrapper { display: none; height: 100vh; padding-top: 10px; }
-        
         #game-area-fighter {
-            width: 400px; height: 500px;
-            background-color: #000;
-            border: 4px solid #ff0055;
-            border-bottom: 4px solid red; 
-            margin: 10px auto;
-            position: relative;
-            overflow: hidden;
+            width: 400px; height: 500px; background-color: #000;
+            border: 4px solid #ff0055; border-bottom: 4px solid red; 
+            margin: 10px auto; position: relative; overflow: hidden;
             box-shadow: 0 0 30px rgba(255, 0, 85, 0.3);
         }
-
         #fighter-player {
-            width: 30px; height: 30px;
-            background-color: #00ffcc; 
+            width: 30px; height: 30px; background-color: #00ffcc; 
             position: absolute; bottom: 20px; left: 0;      
             clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
-            box-shadow: 0 0 10px #00ffcc;
-            transform: translateX(185px); 
-            will-change: transform; 
+            box-shadow: 0 0 10px #00ffcc; transform: translateX(185px); will-change: transform; 
         }
-
         .bullet {
-            width: 4px; height: 15px;
-            background-color: #ffff00;
-            position: absolute;
-            box-shadow: 0 0 5px #ffff00;
-            will-change: top;
+            width: 4px; height: 15px; background-color: #ffff00;
+            position: absolute; box-shadow: 0 0 5px #ffff00; will-change: top;
         }
-
         .enemy {
-            width: 30px; height: 30px;
-            background-color: #ff0055;
-            position: absolute;
-            border-radius: 3px;
-            will-change: top;
+            width: 30px; height: 30px; background-color: #ff0055;
+            position: absolute; border-radius: 3px; will-change: top;
         }
-
         #score-board { font-size: 24px; color: #ff0055; font-family: monospace; font-weight: bold; }
 
         @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
@@ -180,25 +139,21 @@
 
     <div id="main-menu">
         <div class="menu-title">🕹️ Console Arduino</div>
-        
         <div id="player-input-container">
             <input type="text" id="player-name-input" placeholder="INSERISCI NOME" maxlength="8">
         </div>
-
         <div class="cards-container">
             <div class="game-card" onclick="openGame('maze')">
                 <div class="card-icon" style="color:#00ff00">🧩</div>
                 <div class="card-title">Labirinto</div>
-                <div class="card-desc">5 Livelli Completi</div>
+                <div class="card-desc">Speedrun 5 Livelli</div>
             </div>
-
             <div class="game-card" onclick="openGame('fighter')">
                 <div class="card-icon" style="color:#ff0055">🚀</div>
                 <div class="card-title">Fighter War</div>
                 <div class="card-desc">Con Classifica</div>
             </div>
         </div>
-        
         <div style="margin-top: 50px;">
             <button id="connectBtn" class="game-btn">🔌 CONNETTI ARDUINO (USB)</button>
             <div id="status" style="font-size: 14px; color: #666;">Stato: Non connesso</div>
@@ -207,24 +162,30 @@
 
     <div id="maze-wrapper">
         <button class="back-btn" onclick="goBack()">🏠 MENU</button>
-        <h2 style="color:#00ff00">🧩 Labirinto</h2>
+        <button class="leaderboard-btn" onclick="showMazeLeaderboard(true)">🏆 CLASSIFICA</button>
+        
+        <h2 style="color:#00ff00">🧩 Labirinto Speedrun</h2>
         <div id="maze-level-indicator">Livello 1</div>
         <div id="game-area-maze"><div id="player-maze"></div></div>
+
+        <div id="maze-overlay" class="overlay-screen" style="border-color:#00ff00;">
+            <h2 style="color:#00ff00; margin-top:0;">🏆 SPEEDRUN TOP 5</h2>
+            <div id="maze-current-time" style="margin-bottom:20px; font-size:18px; color:#aaa;"></div>
+            <div id="maze-leaderboard-list"></div>
+            <button class="game-btn" onclick="closeMazeLeaderboard()" style="margin-top:20px; width:100%;">CHIUDI / CONTINUA</button>
+        </div>
     </div>
 
     <div id="fighter-wrapper">
         <button class="back-btn" onclick="goBack()">🏠 MENU</button>
         <h2 style="color:#ff0055">🚀 Fighter War</h2>
         <div id="score-board">Punti: 0</div>
-
-        <div id="leaderboard-overlay">
+        
+        <div id="fighter-overlay" class="overlay-screen" style="border-color:#ff0055;">
             <h2 style="color:#ff0055; margin-top:0;">💀 GAME OVER</h2>
-            <div id="final-score" style="margin-bottom:20px; font-size:20px;">Punti: 0</div>
-            
-            <h3 style="border-bottom: 2px solid #555; padding-bottom:5px;">🏆 TOP 5 🏆</h3>
-            <div id="leaderboard-list">
-                </div>
-
+            <div id="final-score" style="margin-bottom:20px; font-size:20px;"></div>
+            <h3 style="border-bottom: 2px solid #555; padding-bottom:5px;">TOP 5 PUNTI</h3>
+            <div id="fighter-leaderboard-list"></div>
             <button class="game-btn" onclick="restartFighter()" style="margin-top:20px; width:100%;">RIGIOCA</button>
             <button class="game-btn" onclick="goBack()" style="background-color:#444; width:100%;">ESCI</button>
         </div>
@@ -236,13 +197,13 @@
     </div>
 
     <script>
-        // --- GESTIONE STATO GLOBALE ---
+        // --- GESTIONE STATO ---
         let giocoAttivo = 'menu'; 
         let connectionStatus = document.getElementById('status');
         let playerName = "GUEST";
+        let mazeStartTime = 0; // Per calcolare il tempo
 
         function openGame(gameName) {
-            // Leggi il nome
             const inputVal = document.getElementById('player-name-input').value.trim();
             if(inputVal !== "") playerName = inputVal.toUpperCase();
             else playerName = "GUEST";
@@ -252,10 +213,12 @@
 
             if (gameName === 'maze') {
                 document.getElementById('maze-wrapper').style.display = 'block';
+                document.getElementById('maze-overlay').style.display = 'none';
+                mazeStartTime = Date.now(); // START CRONOMETRO
                 loadMazeLevel(0); 
             } else if (gameName === 'fighter') {
                 document.getElementById('fighter-wrapper').style.display = 'block';
-                document.getElementById('leaderboard-overlay').style.display = 'none'; // Nascondi classifica
+                document.getElementById('fighter-overlay').style.display = 'none';
                 startFighterGame(); 
             }
         }
@@ -263,56 +226,9 @@
         function goBack() {
             document.getElementById('maze-wrapper').style.display = 'none';
             document.getElementById('fighter-wrapper').style.display = 'none';
-            document.getElementById('leaderboard-overlay').style.display = 'none';
             document.getElementById('main-menu').style.display = 'flex';
             giocoAttivo = 'menu';
             stopFighterGame(); 
-        }
-
-        // =========================================================
-        //                 LOGICA CLASSIFICA (LOCALSTORAGE)
-        // =========================================================
-        function saveScore(score) {
-            // Prendi i vecchi punteggi o crea array vuoto
-            let scores = JSON.parse(localStorage.getItem('fighter_scores')) || [];
-            
-            // Aggiungi quello nuovo
-            scores.push({ name: playerName, score: score });
-            
-            // Ordina dal più alto al più basso
-            scores.sort((a, b) => b.score - a.score);
-            
-            // Tieni solo i top 5
-            scores = scores.slice(0, 5);
-            
-            // Salva
-            localStorage.setItem('fighter_scores', JSON.stringify(scores));
-            
-            return scores; // Ritorna la lista aggiornata
-        }
-
-        function showLeaderboard(currentScore) {
-            const list = saveScore(currentScore);
-            const container = document.getElementById('leaderboard-list');
-            container.innerHTML = ""; // Pulisci
-
-            list.forEach((entry, index) => {
-                let html = `
-                <div class="leader-row">
-                    <span class="leader-rank">#${index+1}</span>
-                    <span class="leader-name">${entry.name}</span>
-                    <span class="leader-score">${entry.score}</span>
-                </div>`;
-                container.innerHTML += html;
-            });
-
-            document.getElementById('final-score').innerText = "Il tuo punteggio: " + currentScore;
-            document.getElementById('leaderboard-overlay').style.display = 'block';
-        }
-
-        function restartFighter() {
-            document.getElementById('leaderboard-overlay').style.display = 'none';
-            startFighterGame();
         }
 
         // =========================================================
@@ -325,18 +241,105 @@
             if (giocoAttivo === 'menu') return;
 
             if (giocoAttivo === 'maze') {
+                // Se c'è l'overlay aperto, non muoverti
+                if(document.getElementById('maze-overlay').style.display === 'block') return;
+
                 if (Date.now() - lastInputTime > MAZE_DELAY) {
                     muoviLabirinto(direzione);
                     lastInputTime = Date.now();
                 }
             }
             if (giocoAttivo === 'fighter') {
+                if(document.getElementById('fighter-overlay').style.display === 'block') return;
                 muoviFighter(direzione);
             }
         }
 
         // =========================================================
-        //                 GIOCO 1: LABIRINTO
+        //                 LOGICA CLASSIFICHE (Save/Load)
+        // =========================================================
+        
+        // --- MAZE: Tempo Minore è Meglio ---
+        function saveMazeTime(msTime) {
+            let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
+            scores.push({ name: playerName, time: msTime });
+            scores.sort((a, b) => a.time - b.time); // Ordine Crescente (Tempo minore vince)
+            scores = scores.slice(0, 5);
+            localStorage.setItem('maze_times_v1', JSON.stringify(scores));
+            return scores;
+        }
+
+        function formatTime(ms) {
+            let seconds = Math.floor(ms / 1000);
+            let minutes = Math.floor(seconds / 60);
+            seconds = seconds % 60;
+            return (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
+        }
+
+        function showMazeLeaderboard(isPause) {
+            let currentRun = 0; 
+            if(!isPause) { // Se è fine gioco
+                currentRun = Date.now() - mazeStartTime;
+                saveMazeTime(currentRun);
+                document.getElementById('maze-current-time').innerText = "Tuo Tempo: " + formatTime(currentRun);
+            } else {
+                document.getElementById('maze-current-time').innerText = "Gioco in Pausa";
+            }
+
+            let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
+            const container = document.getElementById('maze-leaderboard-list');
+            container.innerHTML = "";
+
+            scores.forEach((entry, index) => {
+                container.innerHTML += `
+                <div class="leader-row">
+                    <span class="leader-rank">#${index+1}</span>
+                    <span class="leader-name">${entry.name}</span>
+                    <span class="leader-score">${formatTime(entry.time)}</span>
+                </div>`;
+            });
+
+            document.getElementById('maze-overlay').style.display = 'block';
+        }
+
+        function closeMazeLeaderboard() {
+            document.getElementById('maze-overlay').style.display = 'none';
+        }
+
+        // --- FIGHTER: Punteggio Maggiore è Meglio ---
+        function saveFighterScore(score) {
+            let scores = JSON.parse(localStorage.getItem('fighter_scores_v1')) || [];
+            scores.push({ name: playerName, score: score });
+            scores.sort((a, b) => b.score - a.score); // Ordine Decrescente
+            scores = scores.slice(0, 5);
+            localStorage.setItem('fighter_scores_v1', JSON.stringify(scores));
+            return scores;
+        }
+
+        function showFighterLeaderboard(currentScore) {
+            const list = saveFighterScore(currentScore);
+            const container = document.getElementById('fighter-leaderboard-list');
+            container.innerHTML = "";
+
+            list.forEach((entry, index) => {
+                container.innerHTML += `
+                <div class="leader-row">
+                    <span class="leader-rank">#${index+1}</span>
+                    <span class="leader-name">${entry.name}</span>
+                    <span class="leader-score">${entry.score}</span>
+                </div>`;
+            });
+            document.getElementById('final-score').innerText = "Punti: " + currentScore;
+            document.getElementById('fighter-overlay').style.display = 'block';
+        }
+
+        function restartFighter() {
+            document.getElementById('fighter-overlay').style.display = 'none';
+            startFighterGame();
+        }
+
+        // =========================================================
+        //                 GIOCO 1: LABIRINTO (5 LIVELLI)
         // =========================================================
         const mazeCellSize = 30;
         let mazeMap = [];
@@ -344,7 +347,7 @@
         let currentLevel = 0;
 
         const mazeLevels = [
-            // (Qui ho riassunto i livelli per brevità, sono gli stessi 5 di prima)
+            // Stessi 5 livelli
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],[1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
@@ -353,7 +356,13 @@
         ];
 
         function loadMazeLevel(idx) {
-            if (idx >= mazeLevels.length) { alert("🏆 HAI VINTO IL LABIRINTO!"); idx=0; }
+            // Se finisci il livello 5 (idx va fuori array)
+            if (idx >= mazeLevels.length) { 
+                showMazeLeaderboard(false); // Mostra classifica finale (Fine Speedrun)
+                idx = 0; // Reset
+                // Non ricarico subito il livello per non coprire l'overlay
+                return;
+            }
             currentLevel = idx;
             mazeMap = mazeLevels[idx];
             mazeX = 1; mazeY = 1;
@@ -421,7 +430,7 @@
         let fighterLoopId;
         let bullets = [];
         let enemies = [];
-        let fighterSpeed = 20; // VELOCITÀ ALTA
+        let fighterSpeed = 20;
 
         function startFighterGame() {
             fighterX = 185; fighterScore = 0;
@@ -471,15 +480,12 @@
                 e.y += 2; 
                 e.el.style.top = e.y + "px";
 
-                // GAME OVER: TOCCO FONDO
                 if (e.y > 470) {
                     stopFighterGame();
-                    // MOSTRA LA CLASSIFICA INVECE DELL'ALERT
-                    showLeaderboard(fighterScore);
+                    showFighterLeaderboard(fighterScore);
                     return;
                 }
 
-                // COLLISIONE PROIETTILE
                 for (let j = 0; j < bullets.length; j++) {
                     let b = bullets[j];
                     if (isColliding(b, e)) {
@@ -491,7 +497,6 @@
                     }
                 }
                 
-                // COLLISIONE PLAYER (Invincibile)
                 let playerObj = { x: fighterX, y: 450, w: 30, h: 30 };
                 if (enemies[i] && isColliding(enemies[i], playerObj)) {
                     enemies[i].el.remove(); enemies.splice(i, 1); i--;
