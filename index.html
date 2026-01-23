@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v13 (Timer Grande)</title>
+    <title>Console Arduino v14 (Manager Classifica)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -9,40 +9,26 @@
             text-align: center; 
             background-color: #1a1a1a; 
             color: white; 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            user-select: none; 
+            margin: 0; padding: 0; overflow: hidden; user-select: none; 
         }
 
         /* --- MENU --- */
         #main-menu {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100vh;
             background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
         }
-
         .menu-title {
-            font-size: 50px;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 5px;
-            color: #4CAF50;
-            text-shadow: 0 0 10px #4CAF50;
+            font-size: 50px; margin-bottom: 20px; text-transform: uppercase;
+            letter-spacing: 5px; color: #4CAF50; text-shadow: 0 0 10px #4CAF50;
         }
-
         #player-input-container { margin-bottom: 30px; }
         #player-name-input {
             padding: 15px; font-size: 20px; border-radius: 10px;
             border: 2px solid #4CAF50; background: #222; color: white;
             text-align: center; width: 250px; text-transform: uppercase; font-weight: bold;
         }
-
         .cards-container { display: flex; gap: 40px; }
-
         .game-card {
             width: 260px; height: 320px; background-color: #222;
             border: 2px solid #444; border-radius: 15px; cursor: pointer;
@@ -74,13 +60,16 @@
             background-color: #4CAF50; color: white; border: none; 
             border-radius: 5px; margin-bottom: 10px;
         }
+        .small-btn {
+            padding: 5px 10px; font-size: 12px; background: #666; color: white; border:none; cursor: pointer; border-radius: 3px;
+        }
 
         /* --- OVERLAY CLASSIFICHE --- */
         .overlay-screen {
             display: none; position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.95);
             border: 4px solid #fff; padding: 30px; border-radius: 20px;
-            z-index: 200; width: 350px; box-shadow: 0 0 50px rgba(255, 255, 255, 0.2);
+            z-index: 200; width: 380px; box-shadow: 0 0 50px rgba(255, 255, 255, 0.2);
         }
         .scrollable-list {
             max-height: 300px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px;
@@ -88,30 +77,44 @@
         .scrollable-list::-webkit-scrollbar { width: 8px; }
         .scrollable-list::-webkit-scrollbar-track { background: #222; }
         .scrollable-list::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        
+        /* RIGA CLASSIFICA E MENU 3 PUNTINI */
         .leader-row {
-            display: flex; justify-content: space-between;
+            display: flex; justify-content: space-between; align-items: center;
             font-size: 18px; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;
+            position: relative; /* Per il menu a tendina */
         }
-        .leader-rank { font-weight: bold; color: #aaa; width: 40px; text-align: left;}
-        .leader-name { color: white; flex-grow: 1; text-align: left;}
-        .leader-score { color: #ffff00; font-family: monospace; }
+        .leader-rank { font-weight: bold; color: #aaa; width: 30px; text-align: left;}
+        .leader-name { color: white; flex-grow: 1; text-align: left; padding-left: 10px;}
+        .leader-score { color: #ffff00; font-family: monospace; margin-right: 10px;}
+        
+        .dots-menu-btn {
+            cursor: pointer; color: #aaa; font-weight: bold; padding: 0 5px; user-select: none;
+        }
+        .dots-menu-btn:hover { color: white; }
+
+        /* MENU A TENDINA (DROPDOWN) */
+        .dropdown-content {
+            display: none; position: absolute; right: 0; top: 25px;
+            background-color: #333; min-width: 100px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            z-index: 300; border-radius: 5px; overflow: hidden;
+        }
+        .dropdown-content div {
+            color: white; padding: 8px 12px; text-decoration: none; display: block;
+            cursor: pointer; font-size: 14px; text-align: left;
+        }
+        .dropdown-content div:hover { background-color: #555; }
+        .show-dropdown { display: block; }
 
         /* --- GIOCO LABIRINTO --- */
         #maze-wrapper { display: none; height: 100vh; padding-top: 10px; }
-        
-        /* BARRA DEL CRONOMETRO E LIVELLO */
         #maze-info-bar {
             display: flex; justify-content: center; gap: 50px;
-            background-color: #222;
-            padding: 10px;
-            width: 400px; /* Stessa larghezza del gioco */
-            margin: 0 auto 10px auto;
-            border: 2px solid #555;
-            border-radius: 10px;
+            background-color: #222; padding: 10px; width: 400px; 
+            margin: 0 auto 10px auto; border: 2px solid #555; border-radius: 10px;
         }
         #maze-level-box { font-size: 24px; color: #0088ff; font-weight: bold; }
         #maze-timer-box { font-size: 24px; color: #ffff00; font-weight: bold; font-family: monospace;}
-
         #game-area-maze {
             margin: 0 auto; position: relative; background-color: #000;
             display: grid; border: 4px solid #fff;
@@ -184,19 +187,17 @@
         <button class="leaderboard-btn" onclick="showMazeLeaderboard(true)">🏆 CLASSIFICA</button>
         
         <h2 style="color:#00ff00">🧩 Labirinto Speedrun</h2>
-        
         <div id="maze-info-bar">
             <div id="maze-level-box">LIV: <span id="maze-level-num">1</span>/5</div>
             <div id="maze-timer-box">⏱️ <span id="maze-live-timer">00:00</span></div>
         </div>
-
         <div id="game-area-maze"><div id="player-maze"></div></div>
 
         <div id="maze-overlay" class="overlay-screen" style="border-color:#00ff00;">
             <h2 style="color:#00ff00; margin-top:0;">🏆 SPEEDRUN</h2>
             <div id="maze-current-time" style="margin-bottom:20px; font-size:18px; color:#aaa;"></div>
             <div id="maze-leaderboard-list" class="scrollable-list"></div>
-            <button class="game-btn" onclick="closeMazeLeaderboard()" style="margin-top:20px; width:100%;">CHIUDI / CONTINUA</button>
+            <button class="game-btn" onclick="closeMazeLeaderboard()" style="margin-top:20px; width:100%;">CHIUDI</button>
         </div>
     </div>
 
@@ -211,7 +212,11 @@
             <h2 id="fighter-overlay-title" style="color:#ff0055; margin-top:0;">💀 GAME OVER</h2>
             <div id="final-score" style="margin-bottom:20px; font-size:20px;"></div>
             
-            <h3 style="border-bottom: 2px solid #555; padding-bottom:5px;">CLASSIFICA TOTALE</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #555;">
+                <h3>CLASSIFICA TOTALE</h3>
+                <button class="small-btn" onclick="clearFighterLeaderboard()" style="background:#ff3333;">🗑️ CLEAR</button>
+            </div>
+            
             <div id="fighter-leaderboard-list" class="scrollable-list"></div>
             
             <button id="fighter-resume-btn" class="game-btn" onclick="resumeFighter()" style="margin-top:20px; width:100%; display:none;">RIPRENDI GIOCO</button>
@@ -222,7 +227,7 @@
         <div id="game-area-fighter">
             <div id="fighter-player"></div>
         </div>
-        <p style="font-size:12px; color:#aaa">DIFENDI LA LINEA ROSSA! PIU' PUNTI FAI, PIU' VANNO VELOCI.</p>
+        <p style="font-size:12px; color:#aaa">DIFENDI LA LINEA ROSSA! (Velocità aumenta ogni 10 bersagli)</p>
     </div>
 
     <script>
@@ -245,13 +250,10 @@
             if (gameName === 'maze') {
                 document.getElementById('maze-wrapper').style.display = 'block';
                 document.getElementById('maze-overlay').style.display = 'none';
-                
-                // Reset e Start Timer
                 mazeStartTime = Date.now(); 
                 if(mazeTimerInterval) clearInterval(mazeTimerInterval);
                 mazeTimerInterval = setInterval(updateMazeTimerUI, 1000);
                 updateMazeTimerUI();
-                
                 loadMazeLevel(0); 
             } else if (gameName === 'fighter') {
                 document.getElementById('fighter-wrapper').style.display = 'block';
@@ -272,37 +274,15 @@
         }
 
         // =========================================================
-        //                 LOGICA INPUT
-        // =========================================================
-        let lastInputTime = 0;
-        const MAZE_DELAY = 100; 
-
-        function gestisciInput(direzione) {
-            if (giocoAttivo === 'menu') return;
-
-            if (giocoAttivo === 'maze') {
-                if(document.getElementById('maze-overlay').style.display === 'block') return;
-                if (Date.now() - lastInputTime > MAZE_DELAY) {
-                    muoviLabirinto(direzione);
-                    lastInputTime = Date.now();
-                }
-            }
-            if (giocoAttivo === 'fighter') {
-                if(isFighterPaused || document.getElementById('fighter-overlay').style.display === 'block') return;
-                muoviFighter(direzione);
-            }
-        }
-
-        // =========================================================
-        //                 LOGICA CLASSIFICHE
+        //                 LOGICA CLASSIFICHE E MENU MANAGER
         // =========================================================
         
+        // --- MAZE (Tempo Minore è Meglio) ---
         function updateMazeTimerUI() {
             if(giocoAttivo !== 'maze') return;
             let currentRun = Date.now() - mazeStartTime;
             document.getElementById('maze-live-timer').innerText = formatTime(currentRun);
         }
-
         function saveMazeTime(msTime) {
             let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
             scores.push({ name: playerName, time: msTime });
@@ -310,17 +290,14 @@
             localStorage.setItem('maze_times_v1', JSON.stringify(scores));
             return scores;
         }
-
         function formatTime(ms) {
             let seconds = Math.floor(ms / 1000);
             let minutes = Math.floor(seconds / 60);
             seconds = seconds % 60;
             return (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
         }
-
         function showMazeLeaderboard(isPause) {
             let currentRun = Date.now() - mazeStartTime;
-            
             if(!isPause) { 
                 saveMazeTime(currentRun);
                 document.getElementById('maze-current-time').innerText = "Tempo Finale: " + formatTime(currentRun);
@@ -328,27 +305,24 @@
             } else {
                 document.getElementById('maze-current-time').innerText = "Tempo Attuale: " + formatTime(currentRun);
             }
-
             let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
             const container = document.getElementById('maze-leaderboard-list');
             container.innerHTML = "";
             scores.forEach((entry, index) => {
-                container.innerHTML += `
-                <div class="leader-row">
-                    <span class="leader-rank">#${index+1}</span>
-                    <span class="leader-name">${entry.name}</span>
-                    <span class="leader-score">${formatTime(entry.time)}</span>
-                </div>`;
+                container.innerHTML += `<div class="leader-row"><span class="leader-rank">#${index+1}</span><span class="leader-name">${entry.name}</span><span class="leader-score">${formatTime(entry.time)}</span></div>`;
             });
             document.getElementById('maze-overlay').style.display = 'block';
         }
-
         function closeMazeLeaderboard() {
             document.getElementById('maze-overlay').style.display = 'none';
         }
 
+        // --- FIGHTER WAR (CON MENU GESTIONE) ---
+        function getFighterScores() {
+            return JSON.parse(localStorage.getItem('fighter_scores_v1')) || [];
+        }
         function saveFighterScore(score) {
-            let scores = JSON.parse(localStorage.getItem('fighter_scores_v1')) || [];
+            let scores = getFighterScores();
             if(score !== null) { 
                 scores.push({ name: playerName, score: score });
                 scores.sort((a, b) => b.score - a.score); 
@@ -359,16 +333,7 @@
 
         function showFighterLeaderboard(currentScore, isGameOver) {
             const list = saveFighterScore(isGameOver ? currentScore : null);
-            const container = document.getElementById('fighter-leaderboard-list');
-            container.innerHTML = "";
-            list.forEach((entry, index) => {
-                container.innerHTML += `
-                <div class="leader-row">
-                    <span class="leader-rank">#${index+1}</span>
-                    <span class="leader-name">${entry.name}</span>
-                    <span class="leader-score">${entry.score}</span>
-                </div>`;
-            });
+            renderFighterList(list);
 
             const title = document.getElementById('fighter-overlay-title');
             const scoreDiv = document.getElementById('final-score');
@@ -387,23 +352,110 @@
             document.getElementById('fighter-overlay').style.display = 'block';
         }
 
+        // RENDERIZZA LA LISTA CON I MENU
+        function renderFighterList(list) {
+            const container = document.getElementById('fighter-leaderboard-list');
+            container.innerHTML = "";
+            list.forEach((entry, index) => {
+                container.innerHTML += `
+                <div class="leader-row">
+                    <span class="leader-rank">#${index+1}</span>
+                    <span class="leader-name">${entry.name}</span>
+                    <span class="leader-score">${entry.score}</span>
+                    <span class="dots-menu-btn" onclick="toggleMenu(${index})">⋮</span>
+                    <div id="menu-${index}" class="dropdown-content">
+                        <div onclick="editFighterEntry(${index})">✏️ Modifica</div>
+                        <div onclick="deleteFighterEntry(${index})" style="color:#ff5555">❌ Elimina</div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        // FUNZIONI MENU MANAGER
+        function toggleMenu(index) {
+            // Chiudi tutti gli altri
+            const all = document.querySelectorAll('.dropdown-content');
+            all.forEach(el => {
+                if(el.id !== `menu-${index}`) el.style.display = 'none';
+            });
+            
+            // Toggle del corrente
+            const menu = document.getElementById(`menu-${index}`);
+            if(menu.style.display === 'block') menu.style.display = 'none';
+            else menu.style.display = 'block';
+        }
+
+        function deleteFighterEntry(index) {
+            let scores = getFighterScores();
+            scores.splice(index, 1); // Rimuovi
+            localStorage.setItem('fighter_scores_v1', JSON.stringify(scores));
+            renderFighterList(scores); // Aggiorna UI
+        }
+
+        function editFighterEntry(index) {
+            let scores = getFighterScores();
+            let newName = prompt("Modifica nome:", scores[index].name);
+            if(newName && newName.trim() !== "") {
+                scores[index].name = newName.toUpperCase().substring(0,8);
+                localStorage.setItem('fighter_scores_v1', JSON.stringify(scores));
+                renderFighterList(scores);
+            }
+        }
+
+        function clearFighterLeaderboard() {
+            if(confirm("Sei sicuro di voler cancellare TUTTA la classifica?")) {
+                localStorage.removeItem('fighter_scores_v1');
+                renderFighterList([]);
+            }
+        }
+
+        // Chiudi i menu se clicchi fuori
+        window.onclick = function(event) {
+            if (!event.target.matches('.dots-menu-btn')) {
+                const dropdowns = document.getElementsByClassName("dropdown-content");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    dropdowns[i].style.display = "none";
+                }
+            }
+        }
+
+        // --- GESTIONE PAUSA/RIPRESA ---
         function pauseAndShowFighterLeaderboard() {
             if(document.getElementById('fighter-overlay').style.display === 'block') return; 
             isFighterPaused = true;
             clearInterval(fighterLoopId); 
             showFighterLeaderboard(fighterScore, false);
         }
-
         function resumeFighter() {
             document.getElementById('fighter-overlay').style.display = 'none';
             isFighterPaused = false;
             fighterLoopId = setInterval(gameLoopFighter, 20); 
         }
-
         function restartFighter() {
             document.getElementById('fighter-overlay').style.display = 'none';
             isFighterPaused = false;
             startFighterGame();
+        }
+
+        // =========================================================
+        //                 LOGICA INPUT & GESTIONE
+        // =========================================================
+        let lastInputTime = 0;
+        const MAZE_DELAY = 100; 
+
+        function gestisciInput(direzione) {
+            if (giocoAttivo === 'menu') return;
+            if (giocoAttivo === 'maze') {
+                if(document.getElementById('maze-overlay').style.display === 'block') return;
+                if (Date.now() - lastInputTime > MAZE_DELAY) {
+                    muoviLabirinto(direzione);
+                    lastInputTime = Date.now();
+                }
+            }
+            if (giocoAttivo === 'fighter') {
+                if(isFighterPaused || document.getElementById('fighter-overlay').style.display === 'block') return;
+                muoviFighter(direzione);
+            }
         }
 
         // =========================================================
@@ -415,28 +467,10 @@
         let currentLevel = 0;
 
         const mazeLevels = [
-            // L1
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // L2
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],[1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // L3 (FIXATO 100%)
-            [
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1], 
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1], 
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
-                [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], 
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1], 
-                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-            ],
-            // L4
+            [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
-            // L5
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,2,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1],[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],[1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1],[1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,0,0,0,1],[1,0,1,1,1,0,1,0,0,0,1,0,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,0,1],[1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
         ];
 
@@ -544,7 +578,8 @@
             if (frameCount % 20 === 0) createBullet();
             if (frameCount % 50 === 0) createEnemy();
 
-            let newSpeed = 2 + Math.floor(fighterScore / 50);
+            // AUMENTO DIFFICOLTÀ OGNI 100 PUNTI (10 BERSAGLI)
+            let newSpeed = 2 + Math.floor(fighterScore / 100);
             if(newSpeed > 15) newSpeed = 15;
             enemySpeed = newSpeed;
             document.getElementById('score-board').innerText = "Punti: " + fighterScore + " (Vel: " + enemySpeed + ")";
