@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v14 (Manager Classifica)</title>
+    <title>Console Arduino v15 (Full Manager)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -82,7 +82,7 @@
         .leader-row {
             display: flex; justify-content: space-between; align-items: center;
             font-size: 18px; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;
-            position: relative; /* Per il menu a tendina */
+            position: relative; 
         }
         .leader-rank { font-weight: bold; color: #aaa; width: 30px; text-align: left;}
         .leader-name { color: white; flex-grow: 1; text-align: left; padding-left: 10px;}
@@ -93,7 +93,7 @@
         }
         .dots-menu-btn:hover { color: white; }
 
-        /* MENU A TENDINA (DROPDOWN) */
+        /* MENU A TENDINA */
         .dropdown-content {
             display: none; position: absolute; right: 0; top: 25px;
             background-color: #333; min-width: 100px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);
@@ -104,7 +104,6 @@
             cursor: pointer; font-size: 14px; text-align: left;
         }
         .dropdown-content div:hover { background-color: #555; }
-        .show-dropdown { display: block; }
 
         /* --- GIOCO LABIRINTO --- */
         #maze-wrapper { display: none; height: 100vh; padding-top: 10px; }
@@ -196,8 +195,14 @@
         <div id="maze-overlay" class="overlay-screen" style="border-color:#00ff00;">
             <h2 style="color:#00ff00; margin-top:0;">🏆 SPEEDRUN</h2>
             <div id="maze-current-time" style="margin-bottom:20px; font-size:18px; color:#aaa;"></div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #555;">
+                <h3>CLASSIFICA TEMPI</h3>
+                <button class="small-btn" onclick="clearMazeLeaderboard()" style="background:#ff3333;">🗑️ CLEAR</button>
+            </div>
+
             <div id="maze-leaderboard-list" class="scrollable-list"></div>
-            <button class="game-btn" onclick="closeMazeLeaderboard()" style="margin-top:20px; width:100%;">CHIUDI</button>
+            <button class="game-btn" onclick="closeMazeLeaderboard()" style="margin-top:20px; width:100%;">CHIUDI / CONTINUA</button>
         </div>
     </div>
 
@@ -274,21 +279,24 @@
         }
 
         // =========================================================
-        //                 LOGICA CLASSIFICHE E MENU MANAGER
+        //                 LOGICA GESTIONE CLASSIFICHE
         // =========================================================
         
-        // --- MAZE (Tempo Minore è Meglio) ---
-        function updateMazeTimerUI() {
-            if(giocoAttivo !== 'maze') return;
-            let currentRun = Date.now() - mazeStartTime;
-            document.getElementById('maze-live-timer').innerText = formatTime(currentRun);
+        // ------------- LABIRINTO (MAZE) -------------
+        function getMazeTimes() {
+            return JSON.parse(localStorage.getItem('maze_times_v1')) || [];
         }
         function saveMazeTime(msTime) {
-            let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
+            let scores = getMazeTimes();
             scores.push({ name: playerName, time: msTime });
             scores.sort((a, b) => a.time - b.time); 
             localStorage.setItem('maze_times_v1', JSON.stringify(scores));
             return scores;
+        }
+        function updateMazeTimerUI() {
+            if(giocoAttivo !== 'maze') return;
+            let currentRun = Date.now() - mazeStartTime;
+            document.getElementById('maze-live-timer').innerText = formatTime(currentRun);
         }
         function formatTime(ms) {
             let seconds = Math.floor(ms / 1000);
@@ -296,6 +304,7 @@
             seconds = seconds % 60;
             return (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
         }
+        
         function showMazeLeaderboard(isPause) {
             let currentRun = Date.now() - mazeStartTime;
             if(!isPause) { 
@@ -305,19 +314,61 @@
             } else {
                 document.getElementById('maze-current-time').innerText = "Tempo Attuale: " + formatTime(currentRun);
             }
-            let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
-            const container = document.getElementById('maze-leaderboard-list');
-            container.innerHTML = "";
-            scores.forEach((entry, index) => {
-                container.innerHTML += `<div class="leader-row"><span class="leader-rank">#${index+1}</span><span class="leader-name">${entry.name}</span><span class="leader-score">${formatTime(entry.time)}</span></div>`;
-            });
+            renderMazeList(getMazeTimes());
             document.getElementById('maze-overlay').style.display = 'block';
         }
         function closeMazeLeaderboard() {
             document.getElementById('maze-overlay').style.display = 'none';
         }
 
-        // --- FIGHTER WAR (CON MENU GESTIONE) ---
+        // RENDER LISTA LABIRINTO (Con Menu 3 Puntini)
+        function renderMazeList(list) {
+            const container = document.getElementById('maze-leaderboard-list');
+            container.innerHTML = "";
+            list.forEach((entry, index) => {
+                container.innerHTML += `
+                <div class="leader-row">
+                    <span class="leader-rank">#${index+1}</span>
+                    <span class="leader-name">${entry.name}</span>
+                    <span class="leader-score">${formatTime(entry.time)}</span>
+                    <span class="dots-menu-btn" onclick="toggleMazeMenu(${index})">⋮</span>
+                    <div id="maze-menu-${index}" class="dropdown-content">
+                        <div onclick="editMazeEntry(${index})">✏️ Modifica</div>
+                        <div onclick="deleteMazeEntry(${index})" style="color:#ff5555">❌ Elimina</div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        // AZIONI MANAGER LABIRINTO
+        function toggleMazeMenu(index) {
+            closeAllDropdowns();
+            const menu = document.getElementById(`maze-menu-${index}`);
+            menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+        }
+        function deleteMazeEntry(index) {
+            let scores = getMazeTimes();
+            scores.splice(index, 1);
+            localStorage.setItem('maze_times_v1', JSON.stringify(scores));
+            renderMazeList(scores);
+        }
+        function editMazeEntry(index) {
+            let scores = getMazeTimes();
+            let newName = prompt("Modifica nome:", scores[index].name);
+            if(newName && newName.trim() !== "") {
+                scores[index].name = newName.toUpperCase().substring(0,8);
+                localStorage.setItem('maze_times_v1', JSON.stringify(scores));
+                renderMazeList(scores);
+            }
+        }
+        function clearMazeLeaderboard() {
+            if(confirm("Cancellare TUTTI i tempi del Labirinto?")) {
+                localStorage.removeItem('maze_times_v1');
+                renderMazeList([]);
+            }
+        }
+
+        // ------------- FIGHTER WAR -------------
         function getFighterScores() {
             return JSON.parse(localStorage.getItem('fighter_scores_v1')) || [];
         }
@@ -352,7 +403,7 @@
             document.getElementById('fighter-overlay').style.display = 'block';
         }
 
-        // RENDERIZZA LA LISTA CON I MENU
+        // RENDER LISTA FIGHTER (Con Menu 3 Puntini)
         function renderFighterList(list) {
             const container = document.getElementById('fighter-leaderboard-list');
             container.innerHTML = "";
@@ -362,8 +413,8 @@
                     <span class="leader-rank">#${index+1}</span>
                     <span class="leader-name">${entry.name}</span>
                     <span class="leader-score">${entry.score}</span>
-                    <span class="dots-menu-btn" onclick="toggleMenu(${index})">⋮</span>
-                    <div id="menu-${index}" class="dropdown-content">
+                    <span class="dots-menu-btn" onclick="toggleFighterMenu(${index})">⋮</span>
+                    <div id="fighter-menu-${index}" class="dropdown-content">
                         <div onclick="editFighterEntry(${index})">✏️ Modifica</div>
                         <div onclick="deleteFighterEntry(${index})" style="color:#ff5555">❌ Elimina</div>
                     </div>
@@ -371,27 +422,18 @@
             });
         }
 
-        // FUNZIONI MENU MANAGER
-        function toggleMenu(index) {
-            // Chiudi tutti gli altri
-            const all = document.querySelectorAll('.dropdown-content');
-            all.forEach(el => {
-                if(el.id !== `menu-${index}`) el.style.display = 'none';
-            });
-            
-            // Toggle del corrente
-            const menu = document.getElementById(`menu-${index}`);
-            if(menu.style.display === 'block') menu.style.display = 'none';
-            else menu.style.display = 'block';
+        // AZIONI MANAGER FIGHTER
+        function toggleFighterMenu(index) {
+            closeAllDropdowns();
+            const menu = document.getElementById(`fighter-menu-${index}`);
+            menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
         }
-
         function deleteFighterEntry(index) {
             let scores = getFighterScores();
-            scores.splice(index, 1); // Rimuovi
+            scores.splice(index, 1);
             localStorage.setItem('fighter_scores_v1', JSON.stringify(scores));
-            renderFighterList(scores); // Aggiorna UI
+            renderFighterList(scores);
         }
-
         function editFighterEntry(index) {
             let scores = getFighterScores();
             let newName = prompt("Modifica nome:", scores[index].name);
@@ -401,25 +443,27 @@
                 renderFighterList(scores);
             }
         }
-
         function clearFighterLeaderboard() {
-            if(confirm("Sei sicuro di voler cancellare TUTTA la classifica?")) {
+            if(confirm("Cancellare TUTTI i punteggi di Fighter War?")) {
                 localStorage.removeItem('fighter_scores_v1');
                 renderFighterList([]);
             }
         }
 
-        // Chiudi i menu se clicchi fuori
+        // UTILITÀ COMUNI
+        function closeAllDropdowns() {
+            const dropdowns = document.getElementsByClassName("dropdown-content");
+            for (let i = 0; i < dropdowns.length; i++) {
+                dropdowns[i].style.display = "none";
+            }
+        }
+        // Chiudi menu se clicchi fuori
         window.onclick = function(event) {
             if (!event.target.matches('.dots-menu-btn')) {
-                const dropdowns = document.getElementsByClassName("dropdown-content");
-                for (let i = 0; i < dropdowns.length; i++) {
-                    dropdowns[i].style.display = "none";
-                }
+                closeAllDropdowns();
             }
         }
 
-        // --- GESTIONE PAUSA/RIPRESA ---
         function pauseAndShowFighterLeaderboard() {
             if(document.getElementById('fighter-overlay').style.display === 'block') return; 
             isFighterPaused = true;
@@ -438,7 +482,7 @@
         }
 
         // =========================================================
-        //                 LOGICA INPUT & GESTIONE
+        //                 LOGICA INPUT
         // =========================================================
         let lastInputTime = 0;
         const MAZE_DELAY = 100; 
@@ -578,7 +622,7 @@
             if (frameCount % 20 === 0) createBullet();
             if (frameCount % 50 === 0) createEnemy();
 
-            // AUMENTO DIFFICOLTÀ OGNI 100 PUNTI (10 BERSAGLI)
+            // AUMENTO DIFFICOLTÀ OGNI 100 PUNTI
             let newSpeed = 2 + Math.floor(fighterScore / 100);
             if(newSpeed > 15) newSpeed = 15;
             enemySpeed = newSpeed;
