@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Console Arduino v8 (Speedrun Labirinto)</title>
+    <title>Console Arduino v9 (Totale + Pausa)</title>
     <style>
         /* --- STILE GENERALE --- */
         body { 
@@ -34,7 +34,6 @@
             text-shadow: 0 0 10px #4CAF50;
         }
 
-        /* INPUT NOME */
         #player-input-container { margin-bottom: 30px; }
         #player-name-input {
             padding: 15px; font-size: 20px; border-radius: 10px;
@@ -76,19 +75,34 @@
             border-radius: 5px; margin-bottom: 10px;
         }
 
-        /* --- OVERLAY CLASSIFICHE --- */
+        /* --- OVERLAY CLASSIFICHE (MODIFICATO PER SCROLL) --- */
         .overlay-screen {
             display: none; position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.95);
             border: 4px solid #fff; padding: 30px; border-radius: 20px;
             z-index: 200; width: 350px; box-shadow: 0 0 50px rgba(255, 255, 255, 0.2);
         }
+        
+        /* Contenitore lista con SCROLL */
+        .scrollable-list {
+            max-height: 300px;
+            overflow-y: auto; /* Abilita lo scroll se la lista è lunga */
+            margin-bottom: 15px;
+            padding-right: 5px;
+        }
+        
+        /* Stile scrollbar */
+        .scrollable-list::-webkit-scrollbar { width: 8px; }
+        .scrollable-list::-webkit-scrollbar-track { background: #222; }
+        .scrollable-list::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .scrollable-list::-webkit-scrollbar-thumb:hover { background: #888; }
+
         .leader-row {
             display: flex; justify-content: space-between;
             font-size: 18px; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;
         }
-        .leader-rank { font-weight: bold; color: #aaa; }
-        .leader-name { color: white; }
+        .leader-rank { font-weight: bold; color: #aaa; width: 40px; text-align: left;}
+        .leader-name { color: white; flex-grow: 1; text-align: left;}
         .leader-score { color: #ffff00; font-family: monospace; }
 
         /* --- GIOCO LABIRINTO --- */
@@ -151,7 +165,7 @@
             <div class="game-card" onclick="openGame('fighter')">
                 <div class="card-icon" style="color:#ff0055">🚀</div>
                 <div class="card-title">Fighter War</div>
-                <div class="card-desc">Con Classifica</div>
+                <div class="card-desc">Classifica Totale</div>
             </div>
         </div>
         <div style="margin-top: 50px;">
@@ -169,24 +183,31 @@
         <div id="game-area-maze"><div id="player-maze"></div></div>
 
         <div id="maze-overlay" class="overlay-screen" style="border-color:#00ff00;">
-            <h2 style="color:#00ff00; margin-top:0;">🏆 SPEEDRUN TOP 5</h2>
+            <h2 style="color:#00ff00; margin-top:0;">🏆 SPEEDRUN</h2>
             <div id="maze-current-time" style="margin-bottom:20px; font-size:18px; color:#aaa;"></div>
-            <div id="maze-leaderboard-list"></div>
+            
+            <div id="maze-leaderboard-list" class="scrollable-list"></div>
+            
             <button class="game-btn" onclick="closeMazeLeaderboard()" style="margin-top:20px; width:100%;">CHIUDI / CONTINUA</button>
         </div>
     </div>
 
     <div id="fighter-wrapper">
         <button class="back-btn" onclick="goBack()">🏠 MENU</button>
+        <button class="leaderboard-btn" onclick="pauseAndShowFighterLeaderboard()">🏆 CLASSIFICA</button>
+        
         <h2 style="color:#ff0055">🚀 Fighter War</h2>
         <div id="score-board">Punti: 0</div>
         
         <div id="fighter-overlay" class="overlay-screen" style="border-color:#ff0055;">
-            <h2 style="color:#ff0055; margin-top:0;">💀 GAME OVER</h2>
+            <h2 id="fighter-overlay-title" style="color:#ff0055; margin-top:0;">💀 GAME OVER</h2>
             <div id="final-score" style="margin-bottom:20px; font-size:20px;"></div>
-            <h3 style="border-bottom: 2px solid #555; padding-bottom:5px;">TOP 5 PUNTI</h3>
-            <div id="fighter-leaderboard-list"></div>
-            <button class="game-btn" onclick="restartFighter()" style="margin-top:20px; width:100%;">RIGIOCA</button>
+            
+            <h3 style="border-bottom: 2px solid #555; padding-bottom:5px;">CLASSIFICA TOTALE</h3>
+            <div id="fighter-leaderboard-list" class="scrollable-list"></div>
+            
+            <button id="fighter-resume-btn" class="game-btn" onclick="resumeFighter()" style="margin-top:20px; width:100%; display:none;">RIPRENDI GIOCO</button>
+            <button id="fighter-restart-btn" class="game-btn" onclick="restartFighter()" style="margin-top:20px; width:100%;">RIGIOCA</button>
             <button class="game-btn" onclick="goBack()" style="background-color:#444; width:100%;">ESCI</button>
         </div>
 
@@ -201,7 +222,8 @@
         let giocoAttivo = 'menu'; 
         let connectionStatus = document.getElementById('status');
         let playerName = "GUEST";
-        let mazeStartTime = 0; // Per calcolare il tempo
+        let mazeStartTime = 0; 
+        let isFighterPaused = false;
 
         function openGame(gameName) {
             const inputVal = document.getElementById('player-name-input').value.trim();
@@ -214,7 +236,7 @@
             if (gameName === 'maze') {
                 document.getElementById('maze-wrapper').style.display = 'block';
                 document.getElementById('maze-overlay').style.display = 'none';
-                mazeStartTime = Date.now(); // START CRONOMETRO
+                mazeStartTime = Date.now(); 
                 loadMazeLevel(0); 
             } else if (gameName === 'fighter') {
                 document.getElementById('fighter-wrapper').style.display = 'block';
@@ -226,6 +248,7 @@
         function goBack() {
             document.getElementById('maze-wrapper').style.display = 'none';
             document.getElementById('fighter-wrapper').style.display = 'none';
+            document.getElementById('leaderboard-overlay').style.display = 'none'; // Caso generico
             document.getElementById('main-menu').style.display = 'flex';
             giocoAttivo = 'menu';
             stopFighterGame(); 
@@ -241,16 +264,14 @@
             if (giocoAttivo === 'menu') return;
 
             if (giocoAttivo === 'maze') {
-                // Se c'è l'overlay aperto, non muoverti
                 if(document.getElementById('maze-overlay').style.display === 'block') return;
-
                 if (Date.now() - lastInputTime > MAZE_DELAY) {
                     muoviLabirinto(direzione);
                     lastInputTime = Date.now();
                 }
             }
             if (giocoAttivo === 'fighter') {
-                if(document.getElementById('fighter-overlay').style.display === 'block') return;
+                if(isFighterPaused || document.getElementById('fighter-overlay').style.display === 'block') return;
                 muoviFighter(direzione);
             }
         }
@@ -259,12 +280,12 @@
         //                 LOGICA CLASSIFICHE (Save/Load)
         // =========================================================
         
-        // --- MAZE: Tempo Minore è Meglio ---
+        // --- MAZE ---
         function saveMazeTime(msTime) {
             let scores = JSON.parse(localStorage.getItem('maze_times_v1')) || [];
             scores.push({ name: playerName, time: msTime });
-            scores.sort((a, b) => a.time - b.time); // Ordine Crescente (Tempo minore vince)
-            scores = scores.slice(0, 5);
+            scores.sort((a, b) => a.time - b.time); 
+            // NON TAGLIO PIÙ A 5, SALVO TUTTO
             localStorage.setItem('maze_times_v1', JSON.stringify(scores));
             return scores;
         }
@@ -278,7 +299,7 @@
 
         function showMazeLeaderboard(isPause) {
             let currentRun = 0; 
-            if(!isPause) { // Se è fine gioco
+            if(!isPause) { 
                 currentRun = Date.now() - mazeStartTime;
                 saveMazeTime(currentRun);
                 document.getElementById('maze-current-time').innerText = "Tuo Tempo: " + formatTime(currentRun);
@@ -306,18 +327,20 @@
             document.getElementById('maze-overlay').style.display = 'none';
         }
 
-        // --- FIGHTER: Punteggio Maggiore è Meglio ---
+        // --- FIGHTER ---
         function saveFighterScore(score) {
             let scores = JSON.parse(localStorage.getItem('fighter_scores_v1')) || [];
-            scores.push({ name: playerName, score: score });
-            scores.sort((a, b) => b.score - a.score); // Ordine Decrescente
-            scores = scores.slice(0, 5);
-            localStorage.setItem('fighter_scores_v1', JSON.stringify(scores));
+            if(score !== null) { // Salva solo se c'è un punteggio valido
+                scores.push({ name: playerName, score: score });
+                scores.sort((a, b) => b.score - a.score); 
+                localStorage.setItem('fighter_scores_v1', JSON.stringify(scores));
+            }
             return scores;
         }
 
-        function showFighterLeaderboard(currentScore) {
-            const list = saveFighterScore(currentScore);
+        // Funzione per mostrare classifica Fighter (GameOver o Pausa)
+        function showFighterLeaderboard(currentScore, isGameOver) {
+            const list = saveFighterScore(isGameOver ? currentScore : null);
             const container = document.getElementById('fighter-leaderboard-list');
             container.innerHTML = "";
 
@@ -329,12 +352,45 @@
                     <span class="leader-score">${entry.score}</span>
                 </div>`;
             });
-            document.getElementById('final-score').innerText = "Punti: " + currentScore;
+
+            const title = document.getElementById('fighter-overlay-title');
+            const scoreDiv = document.getElementById('final-score');
+            const resumeBtn = document.getElementById('fighter-resume-btn');
+            const restartBtn = document.getElementById('fighter-restart-btn');
+
+            if(isGameOver) {
+                title.innerText = "💀 GAME OVER";
+                title.style.color = "#ff0055";
+                scoreDiv.innerText = "Punti: " + currentScore;
+                resumeBtn.style.display = "none";
+                restartBtn.style.display = "block";
+            } else {
+                title.innerText = "⏸️ PAUSA";
+                title.style.color = "#ffff00";
+                scoreDiv.innerText = "Punteggio Attuale: " + fighterScore;
+                resumeBtn.style.display = "block";
+                restartBtn.style.display = "none";
+            }
+
             document.getElementById('fighter-overlay').style.display = 'block';
+        }
+
+        function pauseAndShowFighterLeaderboard() {
+            if(document.getElementById('fighter-overlay').style.display === 'block') return; // Già aperta
+            isFighterPaused = true;
+            clearInterval(fighterLoopId); // Ferma il loop
+            showFighterLeaderboard(fighterScore, false);
+        }
+
+        function resumeFighter() {
+            document.getElementById('fighter-overlay').style.display = 'none';
+            isFighterPaused = false;
+            fighterLoopId = setInterval(gameLoopFighter, 20); // Riavvia il loop
         }
 
         function restartFighter() {
             document.getElementById('fighter-overlay').style.display = 'none';
+            isFighterPaused = false;
             startFighterGame();
         }
 
@@ -347,7 +403,6 @@
         let currentLevel = 0;
 
         const mazeLevels = [
-            // Stessi 5 livelli
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,2,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1],[1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
             [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,2,0,0,0,0,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1],[1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
@@ -356,11 +411,9 @@
         ];
 
         function loadMazeLevel(idx) {
-            // Se finisci il livello 5 (idx va fuori array)
             if (idx >= mazeLevels.length) { 
-                showMazeLeaderboard(false); // Mostra classifica finale (Fine Speedrun)
-                idx = 0; // Reset
-                // Non ricarico subito il livello per non coprire l'overlay
+                showMazeLeaderboard(false); 
+                idx = 0; 
                 return;
             }
             currentLevel = idx;
@@ -430,10 +483,10 @@
         let fighterLoopId;
         let bullets = [];
         let enemies = [];
-        let fighterSpeed = 20;
+        let fighterSpeed = 20; 
 
         function startFighterGame() {
-            fighterX = 185; fighterScore = 0;
+            fighterX = 185; fighterScore = 0; isFighterPaused = false;
             bullets = []; enemies = [];
             document.getElementById('score-board').innerText = "Punti: 0";
             
@@ -482,7 +535,7 @@
 
                 if (e.y > 470) {
                     stopFighterGame();
-                    showFighterLeaderboard(fighterScore);
+                    showFighterLeaderboard(fighterScore, true); // TRUE = GAME OVER
                     return;
                 }
 
