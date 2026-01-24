@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Neon Console v16</title>
+    <title>Neon Console v17 (Fluid Input)</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
@@ -25,7 +25,6 @@
             margin: 0; padding: 0; 
             overflow: hidden; 
             user-select: none;
-            /* Sfondo Animato */
             background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
         }
 
@@ -37,7 +36,6 @@
             position: relative;
         }
 
-        /* Titolo con effetto Glow */
         .menu-title {
             font-family: 'Orbitron', sans-serif;
             font-size: 60px; margin-bottom: 30px;
@@ -342,6 +340,9 @@
         let mazeStartTime = 0; 
         let mazeTimerInterval; 
         let isFighterPaused = false;
+        
+        // Variabile per gestire lo stato seriale continuo
+        let serialCommand = "FERMO"; 
 
         function openGame(gameName) {
             const inputVal = document.getElementById('player-name-input').value.trim();
@@ -415,7 +416,6 @@
         }
         function closeMazeLeaderboard() { document.getElementById('maze-overlay').style.display = 'none'; }
 
-        // Render Maze List (con puntini)
         function renderMazeList(list) {
             const container = document.getElementById('maze-leaderboard-list');
             container.innerHTML = "";
@@ -558,25 +558,56 @@
         }
 
         // =========================================================
-        //                 LOGICA INPUT
+        //                 LOGICA INPUT FLUIDA
         // =========================================================
         let lastInputTime = 0;
         const MAZE_DELAY = 100; 
 
-        function gestisciInput(direzione) {
-            if (giocoAttivo === 'menu') return;
-            if (giocoAttivo === 'maze') {
-                if(document.getElementById('maze-overlay').style.display === 'block') return;
-                if (Date.now() - lastInputTime > MAZE_DELAY) {
-                    muoviLabirinto(direzione);
-                    lastInputTime = Date.now();
+        // Nuova funzione loop che gira SEMPRE
+        function gameInputLoop() {
+            // Controlla Joystick Bluetooth
+            const gp = navigator.getGamepads()[0];
+            let dir = "FERMO";
+
+            // Priorità al Bluetooth se attivo, altrimenti usa serialCommand
+            if (gp) {
+                const deadzone = 0.2;
+                if(giocoAttivo === 'fighter') {
+                    if (gp.axes[0] < -deadzone) dir = "SINISTRA";
+                    else if (gp.axes[0] > deadzone) dir = "DESTRA";
+                } else {
+                    if (gp.axes[1] < -deadzone) dir = "SU";
+                    else if (gp.axes[1] > deadzone) dir = "GIU";
+                    else if (gp.axes[0] < -deadzone) dir = "SINISTRA";
+                    else if (gp.axes[0] > deadzone) dir = "DESTRA";
                 }
             }
-            if (giocoAttivo === 'fighter') {
-                if(isFighterPaused || document.getElementById('fighter-overlay').style.display === 'block') return;
-                muoviFighter(direzione);
+            
+            // Se Bluetooth è fermo, usa Seriale
+            if (dir === "FERMO") {
+                dir = serialCommand;
             }
+
+            // Applica movimento
+            if (dir !== "FERMO") {
+                if (giocoAttivo === 'maze') {
+                    if(document.getElementById('maze-overlay').style.display !== 'block') {
+                        if (Date.now() - lastInputTime > MAZE_DELAY) {
+                            muoviLabirinto(dir);
+                            lastInputTime = Date.now();
+                        }
+                    }
+                }
+                else if (giocoAttivo === 'fighter') {
+                    if(!isFighterPaused && document.getElementById('fighter-overlay').style.display !== 'block') {
+                        muoviFighter(dir);
+                    }
+                }
+            }
+
+            requestAnimationFrame(gameInputLoop);
         }
+        gameInputLoop(); // Avvia il loop di input globale
 
         // =========================================================
         //                 GIOCO 1: LABIRINTO (MAPPE)
@@ -764,25 +795,8 @@
         }
 
         // =========================================================
-        //                 GESTIONE ARDUINO E JOYSTICK
+        //                 GESTIONE SERIALE ARDUINO
         // =========================================================
-        function joyLoop() {
-            const gp = navigator.getGamepads()[0];
-            if (gp) {
-                const deadzone = 0.2;
-                if(giocoAttivo === 'fighter') {
-                    if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
-                    else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
-                } else {
-                    if (gp.axes[1] < -deadzone) gestisciInput("SU");
-                    else if (gp.axes[1] > deadzone) gestisciInput("GIU");
-                    if (gp.axes[0] < -deadzone) gestisciInput("SINISTRA");
-                    else if (gp.axes[0] > deadzone) gestisciInput("DESTRA");
-                }
-            }
-            requestAnimationFrame(joyLoop);
-        }
-        joyLoop();
         window.addEventListener("gamepadconnected", () => {
             connectionStatus.innerText = "✅ Controller Bluetooth Connesso";
             connectionStatus.style.color = "var(--success)";
@@ -814,7 +828,10 @@
                     if (buffer.includes('\n')) {
                         const comandi = buffer.split('\n');
                         buffer = comandi.pop(); 
-                        for (let cmd of comandi) gestisciInput(cmd.trim());
+                        for (let cmd of comandi) {
+                            let cleanCmd = cmd.trim();
+                            if(cleanCmd) serialCommand = cleanCmd; // Aggiorna stato globale
+                        }
                     }
                 }
             }
@@ -822,4 +839,3 @@
     </script>
 </body>
 </html>
-
